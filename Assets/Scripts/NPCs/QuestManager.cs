@@ -157,7 +157,7 @@ namespace RuneRealm.NPCs
         [TextArea(2, 4)]
         public string description;
         public int requiredCombatLevel;
-        public Skills.SkillRequirement[] skillRequirements;
+        public Inventory.SkillRequirement[] skillRequirements;
         public QuestObjective[] objectives;
         public QuestReward[] rewards;
         public string[] prerequisiteQuests;
