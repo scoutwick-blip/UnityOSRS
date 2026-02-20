@@ -19,6 +19,16 @@ namespace RuneRealm.Core
     /// </summary>
     public class GameBootstrapper : MonoBehaviour
     {
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        private static void AutoBootstrap()
+        {
+            if (FindAnyObjectByType<GameBootstrapper>() != null) return;
+
+            Debug.Log("[GameBootstrapper] No bootstrapper in scene — auto-creating.");
+            var go = new GameObject("GameBootstrapper");
+            go.AddComponent<GameBootstrapper>();
+        }
+
         [Header("Prefabs")]
         [SerializeField] private GameObject playerPrefab;
         [SerializeField] private GameObject cameraPrefab;
@@ -96,6 +106,13 @@ namespace RuneRealm.Core
         /// </summary>
         private void EnsureManagers()
         {
+            if (GameManager.Instance == null)
+            {
+                var go = new GameObject("GameManager");
+                go.AddComponent<GameManager>();
+                DontDestroyOnLoad(go);
+            }
+
             if (SkillManager.Instance == null)
             {
                 var go = new GameObject("SkillManager");
@@ -123,25 +140,32 @@ namespace RuneRealm.Core
             if (generateTerrainOnStart)
             {
                 var terrainGen = FindAnyObjectByType<TerrainGenerator>();
-                if (terrainGen != null)
+                if (terrainGen == null)
                 {
-                    terrainGen.GenerateTerrain();
-                    Debug.Log("[GameBootstrapper] Terrain generated.");
+                    var terrainGO = new GameObject("TerrainGenerator");
+                    terrainGen = terrainGO.AddComponent<TerrainGenerator>();
+                    Debug.Log("[GameBootstrapper] Created TerrainGenerator.");
+                }
 
-                    if (spawnResourcesOnStart)
+                terrainGen.GenerateTerrain();
+                Debug.Log("[GameBootstrapper] Terrain generated.");
+
+                if (spawnResourcesOnStart)
+                {
+                    var resourceSpawner = FindAnyObjectByType<ResourceSpawner>();
+                    if (resourceSpawner == null)
                     {
-                        var resourceSpawner = FindAnyObjectByType<ResourceSpawner>();
-                        if (resourceSpawner != null)
-                        {
-                            var terrain = terrainGen.GetComponent<Terrain>();
-                            if (terrain != null)
-                            {
-                                resourceSpawner.SpawnResources(
-                                    terrain.terrainData,
-                                    terrainGen.transform.position
-                                );
-                            }
-                        }
+                        var rsGO = new GameObject("ResourceSpawner");
+                        resourceSpawner = rsGO.AddComponent<ResourceSpawner>();
+                    }
+
+                    var terrain = terrainGen.GetComponent<Terrain>();
+                    if (terrain != null)
+                    {
+                        resourceSpawner.SpawnResources(
+                            terrain.terrainData,
+                            terrainGen.transform.position
+                        );
                     }
                 }
             }
@@ -224,39 +248,56 @@ namespace RuneRealm.Core
             {
                 renderer.material.color = new Color(0.4f, 0.35f, 0.3f);
             }
+
+            Debug.Log($"[GameBootstrapper] Player created at {spawnPos}");
         }
 
         private void SetupCamera()
         {
-            if (Camera.main != null)
+            Camera cam = Camera.main;
+            ThirdPersonCamera tpc = null;
+
+            if (cam != null)
+                tpc = cam.GetComponent<ThirdPersonCamera>();
+
+            if (cameraPrefab != null && tpc == null)
             {
-                var existingCam = Camera.main.GetComponent<ThirdPersonCamera>();
-                if (existingCam != null) return;
+                var go = Instantiate(cameraPrefab);
+                cam = go.GetComponentInChildren<Camera>();
+                if (cam != null) tpc = cam.GetComponent<ThirdPersonCamera>();
             }
 
-            if (cameraPrefab != null)
+            if (cam == null)
             {
-                Instantiate(cameraPrefab);
+                GameObject camGO = new GameObject("Main Camera");
+                camGO.tag = "MainCamera";
+                cam = camGO.AddComponent<Camera>();
+                camGO.AddComponent<AudioListener>();
+            }
+
+            if (tpc == null)
+                tpc = cam.gameObject.AddComponent<ThirdPersonCamera>();
+
+            // Camera settings
+            cam.nearClipPlane = 0.1f;
+            cam.farClipPlane = 1500f;
+            cam.fieldOfView = 65f;
+
+            // Immediately position camera behind the player so it doesn't
+            // sit at the origin waiting for ThirdPersonCamera.LateUpdate()
+            var player = PlayerController.Instance;
+            if (player != null)
+            {
+                tpc.SetTarget(player.transform);
+                Vector3 targetPos = player.transform.position + new Vector3(0f, 1.6f, 0f);
+                Vector3 behind = targetPos + Vector3.back * 5f;
+                cam.transform.position = behind;
+                cam.transform.LookAt(targetPos);
+                Debug.Log($"[GameBootstrapper] Camera positioned at {behind}, looking at player at {player.transform.position}");
             }
             else
             {
-                // Set up existing main camera or create one
-                Camera cam = Camera.main;
-                if (cam == null)
-                {
-                    GameObject camGO = new GameObject("Main Camera");
-                    camGO.tag = "MainCamera";
-                    cam = camGO.AddComponent<Camera>();
-                    camGO.AddComponent<AudioListener>();
-                }
-
-                if (cam.GetComponent<ThirdPersonCamera>() == null)
-                    cam.gameObject.AddComponent<ThirdPersonCamera>();
-
-                // Camera post-processing feel
-                cam.nearClipPlane = 0.1f;
-                cam.farClipPlane = 1500f;
-                cam.fieldOfView = 65f;
+                Debug.LogWarning("[GameBootstrapper] PlayerController.Instance is null during SetupCamera!");
             }
         }
 
