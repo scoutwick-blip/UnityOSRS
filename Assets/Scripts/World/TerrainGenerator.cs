@@ -56,13 +56,7 @@ namespace RuneRealm.World
         {
             if (noiseLayers == null || noiseLayers.Length == 0)
             {
-                noiseLayers = new NoiseLayer[]
-                {
-                    new NoiseLayer { name = "Continental", frequency = 0.003f, amplitude = 0.5f, octaves = 3, persistence = 0.5f, lacunarity = 2f },
-                    new NoiseLayer { name = "Mountains", frequency = 0.008f, amplitude = 0.35f, octaves = 5, persistence = 0.55f, lacunarity = 2.2f, useRidged = true },
-                    new NoiseLayer { name = "Hills", frequency = 0.02f, amplitude = 0.1f, octaves = 4, persistence = 0.5f, lacunarity = 2f },
-                    new NoiseLayer { name = "Detail", frequency = 0.05f, amplitude = 0.05f, octaves = 3, persistence = 0.45f, lacunarity = 2f },
-                };
+                noiseLayers = GetDefaultNoiseLayers();
             }
         }
 
@@ -70,13 +64,7 @@ namespace RuneRealm.World
         {
             if (noiseLayers == null || noiseLayers.Length == 0)
             {
-                noiseLayers = new NoiseLayer[]
-                {
-                    new NoiseLayer { name = "Continental", frequency = 0.003f, amplitude = 0.5f, octaves = 3, persistence = 0.5f, lacunarity = 2f },
-                    new NoiseLayer { name = "Mountains", frequency = 0.008f, amplitude = 0.35f, octaves = 5, persistence = 0.55f, lacunarity = 2.2f, useRidged = true },
-                    new NoiseLayer { name = "Hills", frequency = 0.02f, amplitude = 0.1f, octaves = 4, persistence = 0.5f, lacunarity = 2f },
-                    new NoiseLayer { name = "Detail", frequency = 0.05f, amplitude = 0.05f, octaves = 3, persistence = 0.45f, lacunarity = 2f },
-                };
+                noiseLayers = GetDefaultNoiseLayers();
             }
 
             SetupTerrain();
@@ -85,6 +73,21 @@ namespace RuneRealm.World
             PaintTextures();
             PlaceWater();
             PlaceVegetation();
+        }
+
+        private static NoiseLayer[] GetDefaultNoiseLayers()
+        {
+            return new NoiseLayer[]
+            {
+                // Broad, gentle continental shape — mostly flat with gradual elevation changes
+                new NoiseLayer { name = "Continental", frequency = 0.002f, amplitude = 0.25f, octaves = 2, persistence = 0.4f, lacunarity = 2f },
+                // Mountain ranges — ridged noise, lower amplitude so peaks are rare
+                new NoiseLayer { name = "Mountains", frequency = 0.006f, amplitude = 0.18f, octaves = 4, persistence = 0.5f, lacunarity = 2.2f, useRidged = true },
+                // Rolling hills for gentle variation across plains
+                new NoiseLayer { name = "Hills", frequency = 0.015f, amplitude = 0.08f, octaves = 3, persistence = 0.45f, lacunarity = 2f },
+                // Micro detail so flat areas aren't perfectly smooth
+                new NoiseLayer { name = "Detail", frequency = 0.04f, amplitude = 0.03f, octaves = 2, persistence = 0.4f, lacunarity = 2f },
+            };
         }
 
         private void SetupTerrain()
@@ -113,7 +116,9 @@ namespace RuneRealm.World
                 var terrainShader = Shader.Find("Universal Render Pipeline/Terrain/Lit");
                 if (terrainShader != null)
                 {
-                    terrain.materialTemplate = new Material(terrainShader);
+                    var mat = new Material(terrainShader);
+                    mat.SetFloat("_Smoothness", 0f);
+                    terrain.materialTemplate = mat;
                 }
                 else
                 {
