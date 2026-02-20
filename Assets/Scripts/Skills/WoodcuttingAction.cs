@@ -1,4 +1,5 @@
 using UnityEngine;
+using RuneRealm.Player;
 using RuneRealm.Utils;
 
 namespace RuneRealm.Skills
@@ -40,8 +41,19 @@ namespace RuneRealm.Skills
         private float GetToolBonus()
         {
             // Tool tier: Bronze=1, Iron=6, Steel=11, Mithril=21, Adamant=31, Rune=41, Dragon=61
-            // Default to bronze if no tool equipped
-            return 6f;
+            int tier = EquipmentManager.Instance != null
+                ? EquipmentManager.Instance.GetToolTier(SkillType.Woodcutting)
+                : 0;
+            return tier switch
+            {
+                1 => 1f,   // Bronze
+                2 => 6f,   // Iron
+                3 => 11f,  // Steel
+                4 => 21f,  // Mithril
+                5 => 31f,  // Adamant
+                6 => 41f,  // Rune
+                _ => 1f,   // No tool / unknown — bronze level
+            };
         }
 
         protected override int CalculateXP()

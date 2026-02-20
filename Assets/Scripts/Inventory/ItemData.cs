@@ -47,11 +47,11 @@ namespace RuneRealm.Inventory
 
         public bool MeetsRequirements()
         {
-            if (skillRequirements == null) return true;
+            if (skillRequirements == null || skillRequirements.Length == 0) return true;
+            if (SkillManager.Instance == null) return false;
             foreach (var req in skillRequirements)
             {
-                if (SkillManager.Instance != null &&
-                    !SkillManager.Instance.MeetsRequirement(req.skill, req.level))
+                if (!SkillManager.Instance.MeetsRequirement(req.skill, req.level))
                     return false;
             }
             return true;

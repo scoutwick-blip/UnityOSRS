@@ -137,6 +137,13 @@ namespace RuneRealm.Skills
                 skillXP[skillData.skillType] = skillData.currentXP;
                 skillLevels[skillData.skillType] = SkillConstants.GetLevelForXP(skillData.currentXP);
             }
+
+            // Notify UI so it refreshes with loaded values
+            foreach (var skillData in data)
+            {
+                OnXPGained?.Invoke(skillData.skillType, 0, skillXP[skillData.skillType]);
+            }
+            OnTotalLevelChanged?.Invoke(GetTotalLevel());
         }
     }
 }

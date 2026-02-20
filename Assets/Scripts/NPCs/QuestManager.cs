@@ -95,7 +95,7 @@ namespace RuneRealm.NPCs
             {
                 foreach (var reward in quest.rewards)
                 {
-                    if (reward.xpRewardSkill != Skills.SkillType.Attack || reward.xpAmount > 0)
+                    if (reward.xpAmount > 0)
                     {
                         Skills.SkillManager.Instance?.AddXP(reward.xpRewardSkill, reward.xpAmount);
                     }

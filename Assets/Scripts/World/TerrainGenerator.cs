@@ -159,6 +159,8 @@ namespace RuneRealm.World
                 var layer = new TerrainLayer();
                 layer.diffuseTexture = tex;
                 layer.tileSize = new Vector2(10, 10);
+                layer.smoothness = 0f;
+                layer.metallic = 0f;
                 layer.name = names[i];
 
                 terrainLayers[i] = layer;

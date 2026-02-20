@@ -1,4 +1,5 @@
 using UnityEngine;
+using RuneRealm.Player;
 
 namespace RuneRealm.Skills
 {
@@ -36,7 +37,19 @@ namespace RuneRealm.Skills
 
         private float GetToolBonus()
         {
-            return 6f; // Default to iron pickaxe bonus
+            int tier = EquipmentManager.Instance != null
+                ? EquipmentManager.Instance.GetToolTier(SkillType.Mining)
+                : 0;
+            return tier switch
+            {
+                1 => 1f,   // Bronze
+                2 => 6f,   // Iron
+                3 => 11f,  // Steel
+                4 => 21f,  // Mithril
+                5 => 31f,  // Adamant
+                6 => 41f,  // Rune
+                _ => 1f,   // No tool / unknown — bronze level
+            };
         }
 
         protected override void OnSuccess()
