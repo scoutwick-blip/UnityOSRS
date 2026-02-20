@@ -13,7 +13,7 @@ namespace RuneRealm.Editor
         [MenuItem("RuneRealm/Generate Terrain")]
         static void GenerateTerrain()
         {
-            var generator = FindObjectOfType<TerrainGenerator>();
+            var generator = FindAnyObjectByType<TerrainGenerator>();
             if (generator != null)
             {
                 generator.GenerateTerrain();
@@ -83,7 +83,7 @@ namespace RuneRealm.Editor
         static void SetupGameScene()
         {
             // Create Game Manager
-            if (FindObjectOfType<Core.GameManager>() == null)
+            if (FindAnyObjectByType<Core.GameManager>() == null)
             {
                 var gmGO = new GameObject("GameManager");
                 gmGO.AddComponent<Core.GameManager>();
@@ -93,7 +93,7 @@ namespace RuneRealm.Editor
             }
 
             // Create World
-            if (FindObjectOfType<TerrainGenerator>() == null)
+            if (FindAnyObjectByType<TerrainGenerator>() == null)
             {
                 var worldGO = new GameObject("World");
                 worldGO.AddComponent<TerrainGenerator>();
@@ -105,14 +105,14 @@ namespace RuneRealm.Editor
             }
 
             // Create Game Bootstrapper
-            if (FindObjectOfType<Core.GameBootstrapper>() == null)
+            if (FindAnyObjectByType<Core.GameBootstrapper>() == null)
             {
                 var bootGO = new GameObject("GameBootstrapper");
                 bootGO.AddComponent<Core.GameBootstrapper>();
             }
 
             // Create Directional Light (Sun)
-            var existingLight = FindObjectOfType<Light>();
+            var existingLight = FindAnyObjectByType<Light>();
             if (existingLight == null)
             {
                 var lightGO = new GameObject("Directional Light (Sun)");

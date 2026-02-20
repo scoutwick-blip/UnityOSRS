@@ -91,7 +91,7 @@ namespace RuneRealm.Core
         {
             if (generateTerrainOnStart)
             {
-                var terrainGen = FindObjectOfType<TerrainGenerator>();
+                var terrainGen = FindAnyObjectByType<TerrainGenerator>();
                 if (terrainGen != null)
                 {
                     terrainGen.GenerateTerrain();
@@ -99,7 +99,7 @@ namespace RuneRealm.Core
 
                     if (spawnResourcesOnStart)
                     {
-                        var resourceSpawner = FindObjectOfType<ResourceSpawner>();
+                        var resourceSpawner = FindAnyObjectByType<ResourceSpawner>();
                         if (resourceSpawner != null)
                         {
                             var terrain = terrainGen.GetComponent<Terrain>();
@@ -118,7 +118,7 @@ namespace RuneRealm.Core
 
         private void SetupPlayer()
         {
-            var existingPlayer = FindObjectOfType<PlayerController>();
+            var existingPlayer = FindAnyObjectByType<PlayerController>();
             if (existingPlayer != null)
             {
                 // Player already in scene, position at spawn
