@@ -273,11 +273,7 @@ namespace RuneRealm.Core
             {
                 var esGO = new GameObject("EventSystem");
                 esGO.AddComponent<EventSystem>();
-                var inputModule = esGO.AddComponent<StandaloneInputModule>();
-                // Clear Submit/Cancel button names — the default Input Manager
-                // may not have them configured, which causes ArgumentException
-                inputModule.submitButton = "";
-                inputModule.cancelButton = "";
+                esGO.AddComponent<StandaloneInputModule>();
             }
 
             // Main Canvas
