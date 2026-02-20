@@ -118,32 +118,49 @@ namespace RuneRealm.Core
 
         private void SetupPlayer()
         {
+            Vector3 spawnPos = GetSpawnPositionOnTerrain();
+
             var existingPlayer = FindAnyObjectByType<PlayerController>();
             if (existingPlayer != null)
             {
                 // Player already in scene, position at spawn
-                existingPlayer.transform.position = playerSpawnPosition;
+                existingPlayer.transform.position = spawnPos;
                 existingPlayer.transform.eulerAngles = playerSpawnRotation;
                 return;
             }
 
             if (playerPrefab != null)
             {
-                GameObject player = Instantiate(playerPrefab, playerSpawnPosition,
+                GameObject player = Instantiate(playerPrefab, spawnPos,
                     Quaternion.Euler(playerSpawnRotation));
                 player.name = "Player";
             }
             else
             {
                 // Create a basic player
-                CreateDefaultPlayer();
+                CreateDefaultPlayer(spawnPos);
             }
         }
 
-        private void CreateDefaultPlayer()
+        private Vector3 GetSpawnPositionOnTerrain()
+        {
+            Vector3 pos = playerSpawnPosition;
+
+            // Sample terrain height at spawn XZ so the player lands on top
+            var terrain = Terrain.activeTerrain;
+            if (terrain != null)
+            {
+                float terrainY = terrain.SampleHeight(pos) + terrain.transform.position.y;
+                pos.y = terrainY + 2f; // small offset above surface
+            }
+
+            return pos;
+        }
+
+        private void CreateDefaultPlayer(Vector3 spawnPos)
         {
             GameObject player = new GameObject("Player");
-            player.transform.position = playerSpawnPosition;
+            player.transform.position = spawnPos;
             player.tag = "Player";
             player.layer = LayerMask.NameToLayer("Default");
 

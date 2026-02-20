@@ -80,6 +80,7 @@ namespace RuneRealm.World
             }
 
             SetupTerrain();
+            CreateDefaultTerrainLayersIfNeeded();
             GenerateHeightmap();
             PaintTextures();
             PlaceWater();
@@ -105,6 +106,43 @@ namespace RuneRealm.World
 
             terrain.terrainData = terrainData;
             collider.terrainData = terrainData;
+        }
+
+        private void CreateDefaultTerrainLayersIfNeeded()
+        {
+            if (terrainLayers != null && terrainLayers.Length >= 5) return;
+
+            // Create procedural textures for each biome: Grass, Rock, Snow, Sand, Dirt
+            terrainLayers = new TerrainLayer[5];
+
+            Color[] colors = new Color[]
+            {
+                new Color(0.28f, 0.38f, 0.15f), // Grass - muted green
+                new Color(0.35f, 0.32f, 0.28f), // Rock  - grey-brown
+                new Color(0.90f, 0.92f, 0.95f), // Snow  - off-white
+                new Color(0.76f, 0.70f, 0.50f), // Sand  - warm tan
+                new Color(0.40f, 0.30f, 0.20f), // Dirt  - brown
+            };
+
+            string[] names = { "Grass", "Rock", "Snow", "Sand", "Dirt" };
+
+            for (int i = 0; i < 5; i++)
+            {
+                var tex = new Texture2D(2, 2);
+                Color[] pixels = { colors[i], colors[i], colors[i], colors[i] };
+                tex.SetPixels(pixels);
+                tex.Apply();
+                tex.name = names[i] + "_Tex";
+
+                var layer = new TerrainLayer();
+                layer.diffuseTexture = tex;
+                layer.tileSize = new Vector2(10, 10);
+                layer.name = names[i];
+
+                terrainLayers[i] = layer;
+            }
+
+            terrainData.terrainLayers = terrainLayers;
         }
 
         private void GenerateHeightmap()
