@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 using RuneRealm.Core;
 using RuneRealm.Skills;
 
@@ -108,6 +109,16 @@ namespace RuneRealm.Player
                 velocity.y = -2f;
         }
 
+        private static float ReadKeyAxis(Key positive, Key negative)
+        {
+            var kb = Keyboard.current;
+            if (kb == null) return 0f;
+            float val = 0f;
+            if (kb[positive].isPressed) val += 1f;
+            if (kb[negative].isPressed) val -= 1f;
+            return val;
+        }
+
         private void HandleMovement()
         {
             if (isSkilling) return;
@@ -116,8 +127,12 @@ namespace RuneRealm.Player
             if (cameraTransform == null && Camera.main != null)
                 cameraTransform = Camera.main.transform;
 
-            float horizontal = Input.GetAxisRaw("Horizontal");
-            float vertical = Input.GetAxisRaw("Vertical");
+            float horizontal = ReadKeyAxis(Key.D, Key.A)
+                             + ReadKeyAxis(Key.RightArrow, Key.LeftArrow);
+            float vertical   = ReadKeyAxis(Key.W, Key.S)
+                             + ReadKeyAxis(Key.UpArrow, Key.DownArrow);
+            horizontal = Mathf.Clamp(horizontal, -1f, 1f);
+            vertical   = Mathf.Clamp(vertical, -1f, 1f);
 
             Vector3 direction = Vector3.zero;
 
@@ -138,7 +153,9 @@ namespace RuneRealm.Player
             }
 
             // Sprint
-            isSprinting = Input.GetKey(KeyCode.LeftShift) && currentStamina > 0 && direction.magnitude > 0.1f;
+            var kb = Keyboard.current;
+            bool shiftHeld = kb != null && kb.leftShiftKey.isPressed;
+            isSprinting = shiftHeld && currentStamina > 0 && direction.magnitude > 0.1f;
             float speed = isSprinting ? sprintSpeed : walkSpeed;
 
             // Move
@@ -150,7 +167,8 @@ namespace RuneRealm.Player
             }
 
             // Jump
-            if (Input.GetButtonDown("Jump") && isGrounded)
+            bool jumpPressed = kb != null && kb.spaceKey.wasPressedThisFrame;
+            if (jumpPressed && isGrounded)
             {
                 velocity.y = Mathf.Sqrt(jumpForce * -2f * gravity);
                 if (animator != null) animator.SetTrigger(AnimJump);
@@ -181,7 +199,8 @@ namespace RuneRealm.Player
             // Find nearest resource node
             nearestNode = FindNearestResourceNode();
 
-            if (Input.GetKeyDown(KeyCode.E) && nearestNode != null && !isSkilling)
+            var kb = Keyboard.current;
+            if (kb != null && kb.eKey.wasPressedThisFrame && nearestNode != null && !isSkilling)
             {
                 TryStartSkilling(nearestNode);
             }
@@ -192,10 +211,12 @@ namespace RuneRealm.Player
             // Cancel skilling with movement or pressing E again
             if (isSkilling)
             {
-                float h = Input.GetAxisRaw("Horizontal");
-                float v = Input.GetAxisRaw("Vertical");
+                float h = ReadKeyAxis(Key.D, Key.A) + ReadKeyAxis(Key.RightArrow, Key.LeftArrow);
+                float v = ReadKeyAxis(Key.W, Key.S) + ReadKeyAxis(Key.UpArrow, Key.DownArrow);
 
-                if (Mathf.Abs(h) > 0.1f || Mathf.Abs(v) > 0.1f || Input.GetKeyDown(KeyCode.E))
+                var kb = Keyboard.current;
+                bool ePressed = kb != null && kb.eKey.wasPressedThisFrame;
+                if (Mathf.Abs(h) > 0.1f || Mathf.Abs(v) > 0.1f || ePressed)
                 {
                     StopSkilling();
                 }

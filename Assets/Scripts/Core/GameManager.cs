@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 
 namespace RuneRealm.Core
@@ -138,7 +139,8 @@ namespace RuneRealm.Core
 
         private void HandleGlobalInput()
         {
-            if (Input.GetKeyDown(KeyCode.Escape))
+            var kb = Keyboard.current;
+            if (kb != null && kb.escapeKey.wasPressedThisFrame)
             {
                 if (currentState == GameState.Playing)
                     SetGameState(GameState.Paused);

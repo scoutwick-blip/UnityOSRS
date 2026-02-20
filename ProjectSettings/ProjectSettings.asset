@@ -202,7 +202,7 @@ PlayerSettings:
   incrementalIl2cppBuild: {}
   allowUnsafeCode: 0
   additionalIl2CppArgs:
-  activeInputHandler: 2
+  activeInputHandler: 1
   cloudProjectId:
   framebufferDepthMemorylessMode: 0
   qualitySettingsNames: []

@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using TMPro;
 using RuneRealm.Core;
@@ -52,7 +53,11 @@ namespace RuneRealm.NPCs
             if (!IsInDialogue) return;
 
             // Skip typewriter or advance dialogue
-            if (Input.GetKeyDown(KeyCode.Space) || Input.GetMouseButtonDown(0))
+            var kb = Keyboard.current;
+            var mouse = Mouse.current;
+            bool advance = (kb != null && kb.spaceKey.wasPressedThisFrame)
+                        || (mouse != null && mouse.leftButton.wasPressedThisFrame);
+            if (advance)
             {
                 if (isTyping)
                 {
@@ -73,7 +78,7 @@ namespace RuneRealm.NPCs
                 }
             }
 
-            if (Input.GetKeyDown(KeyCode.Escape))
+            if (kb != null && kb.escapeKey.wasPressedThisFrame)
             {
                 EndDialogue();
             }

@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 using RuneRealm.Core;
 
 namespace RuneRealm.Player
@@ -88,8 +89,12 @@ namespace RuneRealm.Player
         {
             if (Cursor.lockState != CursorLockMode.Locked) return;
 
-            float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity;
-            float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity;
+            var mouse = Mouse.current;
+            if (mouse == null) return;
+
+            Vector2 delta = mouse.delta.ReadValue();
+            float mouseX = delta.x * 0.1f * mouseSensitivity;
+            float mouseY = delta.y * 0.1f * mouseSensitivity;
 
             yaw += mouseX;
             pitch -= mouseY;
@@ -98,7 +103,10 @@ namespace RuneRealm.Player
 
         private void HandleZoom()
         {
-            float scrollInput = Input.GetAxis("Mouse ScrollWheel");
+            var mouse = Mouse.current;
+            if (mouse == null) return;
+
+            float scrollInput = mouse.scroll.y.ReadValue() / 1200f;
             desiredDistance -= scrollInput * zoomSpeed;
             desiredDistance = Mathf.Clamp(desiredDistance, minDistance, maxDistance);
         }

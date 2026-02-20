@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using TMPro;
 using RuneRealm.Core;
@@ -63,12 +64,15 @@ namespace RuneRealm.UI
 
         private void Update()
         {
-            if (Input.GetKeyDown(KeyCode.I) || Input.GetKeyDown(KeyCode.Tab))
+            var kb = Keyboard.current;
+            if (kb == null) return;
+
+            if (kb.iKey.wasPressedThisFrame || kb.tabKey.wasPressedThisFrame)
             {
                 ToggleMenu();
             }
 
-            if (isOpen && Input.GetKeyDown(KeyCode.Escape))
+            if (isOpen && kb.escapeKey.wasPressedThisFrame)
             {
                 CloseMenu();
             }

@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 using RuneRealm.Skills;
 using RuneRealm.Core;
 
@@ -28,7 +29,8 @@ namespace RuneRealm.Player
 
             ScanForInteractables();
 
-            if (Input.GetKeyDown(KeyCode.E) && currentTarget != null)
+            var kb = Keyboard.current;
+            if (kb != null && kb.eKey.wasPressedThisFrame && currentTarget != null)
             {
                 currentTarget.Interact(gameObject);
             }
