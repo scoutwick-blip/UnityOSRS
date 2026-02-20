@@ -29,6 +29,10 @@ namespace RuneRealm.Editor
         static void CreateItemDatabase()
         {
             string path = "Assets/Resources/Items";
+            if (!AssetDatabase.IsValidFolder("Assets/Resources"))
+            {
+                AssetDatabase.CreateFolder("Assets", "Resources");
+            }
             if (!AssetDatabase.IsValidFolder(path))
             {
                 AssetDatabase.CreateFolder("Assets/Resources", "Items");

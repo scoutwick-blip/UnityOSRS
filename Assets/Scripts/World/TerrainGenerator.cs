@@ -68,6 +68,17 @@ namespace RuneRealm.World
 
         public void GenerateTerrain()
         {
+            if (noiseLayers == null || noiseLayers.Length == 0)
+            {
+                noiseLayers = new NoiseLayer[]
+                {
+                    new NoiseLayer { name = "Continental", frequency = 0.003f, amplitude = 0.5f, octaves = 3, persistence = 0.5f, lacunarity = 2f },
+                    new NoiseLayer { name = "Mountains", frequency = 0.008f, amplitude = 0.35f, octaves = 5, persistence = 0.55f, lacunarity = 2.2f, useRidged = true },
+                    new NoiseLayer { name = "Hills", frequency = 0.02f, amplitude = 0.1f, octaves = 4, persistence = 0.5f, lacunarity = 2f },
+                    new NoiseLayer { name = "Detail", frequency = 0.05f, amplitude = 0.05f, octaves = 3, persistence = 0.45f, lacunarity = 2f },
+                };
+            }
+
             SetupTerrain();
             GenerateHeightmap();
             PaintTextures();
