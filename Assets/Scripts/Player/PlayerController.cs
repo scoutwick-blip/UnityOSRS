@@ -90,11 +90,19 @@ namespace RuneRealm.Player
 
         private void GroundCheck()
         {
-            isGrounded = Physics.CheckSphere(
-                transform.position + Vector3.down * (characterController.height / 2f),
-                groundCheckDistance,
-                groundLayer
-            );
+            if (groundLayer != 0)
+            {
+                isGrounded = Physics.CheckSphere(
+                    transform.position + Vector3.down * (characterController.height / 2f),
+                    groundCheckDistance,
+                    groundLayer
+                );
+            }
+            else
+            {
+                // groundLayer not configured — fall back to CharacterController
+                isGrounded = characterController.isGrounded;
+            }
 
             if (isGrounded && velocity.y < 0)
                 velocity.y = -2f;

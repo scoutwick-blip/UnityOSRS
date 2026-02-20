@@ -106,6 +106,23 @@ namespace RuneRealm.World
 
             terrain.terrainData = terrainData;
             collider.terrainData = terrainData;
+
+            // Assign URP terrain material so it doesn't render pink
+            if (terrain.materialTemplate == null)
+            {
+                var terrainShader = Shader.Find("Universal Render Pipeline/Terrain/Lit");
+                if (terrainShader != null)
+                {
+                    terrain.materialTemplate = new Material(terrainShader);
+                }
+                else
+                {
+                    // Fallback for built-in pipeline
+                    var fallback = Shader.Find("Nature/Terrain/Diffuse");
+                    if (fallback != null)
+                        terrain.materialTemplate = new Material(fallback);
+                }
+            }
         }
 
         private void CreateDefaultTerrainLayersIfNeeded()
