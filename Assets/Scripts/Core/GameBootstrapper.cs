@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem.UI;
 using RuneRealm.Skills;
 using RuneRealm.Inventory;
 using RuneRealm.Player;
@@ -273,7 +274,7 @@ namespace RuneRealm.Core
             {
                 var esGO = new GameObject("EventSystem");
                 esGO.AddComponent<EventSystem>();
-                esGO.AddComponent<StandaloneInputModule>();
+                esGO.AddComponent<InputSystemUIInputModule>();
             }
 
             // Main Canvas
