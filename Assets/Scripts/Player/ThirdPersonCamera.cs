@@ -41,6 +41,7 @@ namespace RuneRealm.Player
         private float currentDistance;
         private float desiredDistance;
         private float bobTimer;
+        private bool hasSnappedToTarget;
 
         private void Start()
         {
@@ -64,7 +65,18 @@ namespace RuneRealm.Player
 
         private void LateUpdate()
         {
-            if (target == null) return;
+            if (target == null)
+            {
+                var player = PlayerController.Instance;
+                if (player != null)
+                {
+                    target = player.transform;
+                }
+                else
+                {
+                    return;
+                }
+            }
             if (GameManager.Instance != null && GameManager.Instance.IsPaused) return;
 
             HandleInput();
@@ -131,7 +143,15 @@ namespace RuneRealm.Player
 
             Vector3 finalPosition = targetPos + direction * currentDistance;
 
-            transform.position = Vector3.Lerp(transform.position, finalPosition, orbitSmoothSpeed * Time.deltaTime);
+            if (!hasSnappedToTarget)
+            {
+                transform.position = finalPosition;
+                hasSnappedToTarget = true;
+            }
+            else
+            {
+                transform.position = Vector3.Lerp(transform.position, finalPosition, orbitSmoothSpeed * Time.deltaTime);
+            }
             transform.LookAt(targetPos);
         }
 
