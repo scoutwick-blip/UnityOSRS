@@ -1,4 +1,6 @@
 using UnityEngine;
+using UnityEngine.UI;
+using UnityEngine.EventSystems;
 using RuneRealm.Skills;
 using RuneRealm.Inventory;
 using RuneRealm.Player;
@@ -43,13 +45,13 @@ namespace RuneRealm.Core
 
             // Initialize render settings for Skyrim atmosphere
             InitializeRenderSettings();
+
+            // Ensure all singleton managers exist before anything else
+            EnsureManagers();
         }
 
         private void Start()
         {
-            // Systems are initialized through their own Awake() via scene hierarchy,
-            // but we ensure everything is connected here.
-
             SetupWorld();
             SetupPlayer();
             SetupCamera();
@@ -83,8 +85,36 @@ namespace RuneRealm.Core
             RenderSettings.ambientEquatorColor = new Color(0.45f, 0.5f, 0.55f);
             RenderSettings.ambientGroundColor = new Color(0.25f, 0.22f, 0.2f);
 
-            // Skybox
-            RenderSettings.reflectionIntensity = 0.5f;
+            // Skybox — keep reflections off so terrain/surfaces stay matte
+            RenderSettings.reflectionIntensity = 0f;
+            RenderSettings.defaultReflectionMode = UnityEngine.Rendering.DefaultReflectionMode.Custom;
+        }
+
+        /// <summary>
+        /// Creates singleton manager GameObjects if they don't already exist in the scene.
+        /// </summary>
+        private void EnsureManagers()
+        {
+            if (SkillManager.Instance == null)
+            {
+                var go = new GameObject("SkillManager");
+                go.AddComponent<SkillManager>();
+                DontDestroyOnLoad(go);
+            }
+
+            if (InventoryManager.Instance == null)
+            {
+                var go = new GameObject("InventoryManager");
+                go.AddComponent<InventoryManager>();
+                DontDestroyOnLoad(go);
+            }
+
+            if (EquipmentManager.Instance == null)
+            {
+                var go = new GameObject("EquipmentManager");
+                go.AddComponent<EquipmentManager>();
+                DontDestroyOnLoad(go);
+            }
         }
 
         private void SetupWorld()
@@ -173,6 +203,7 @@ namespace RuneRealm.Core
             // Player components
             player.AddComponent<PlayerController>();
             player.AddComponent<PlayerInteraction>();
+            player.AddComponent<EquipmentManager>();
             player.AddComponent<WoodcuttingAction>();
             player.AddComponent<MiningAction>();
             player.AddComponent<FishingAction>();
@@ -230,12 +261,59 @@ namespace RuneRealm.Core
 
         private void SetupUI()
         {
-            // UI is typically set up in the scene already
-            // But ensure HUD exists
-            if (HUDManager.Instance == null && hudCanvasPrefab != null)
+            if (hudCanvasPrefab != null)
             {
                 Instantiate(hudCanvasPrefab);
+                return;
             }
+
+            // Build the entire UI at runtime when no prefab is available
+            // Ensure EventSystem exists for input
+            if (FindAnyObjectByType<EventSystem>() == null)
+            {
+                var esGO = new GameObject("EventSystem");
+                esGO.AddComponent<EventSystem>();
+                esGO.AddComponent<StandaloneInputModule>();
+            }
+
+            // Main Canvas
+            var canvasGO = new GameObject("HUDCanvas");
+            var canvas = canvasGO.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 100;
+
+            var scaler = canvasGO.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920, 1080);
+            scaler.matchWidthOrHeight = 0.5f;
+
+            canvasGO.AddComponent<GraphicRaycaster>();
+
+            // HUD layer (always visible in gameplay)
+            var hudGO = new GameObject("HUD");
+            hudGO.transform.SetParent(canvasGO.transform, false);
+            hudGO.AddComponent<RectTransform>().anchorMin = Vector2.zero;
+            hudGO.GetComponent<RectTransform>().anchorMax = Vector2.one;
+            hudGO.GetComponent<RectTransform>().sizeDelta = Vector2.zero;
+            hudGO.AddComponent<HUDManager>();
+
+            // Inventory panel
+            var invGO = new GameObject("InventoryUI");
+            invGO.transform.SetParent(canvasGO.transform, false);
+            invGO.AddComponent<RectTransform>().anchorMin = Vector2.zero;
+            invGO.GetComponent<RectTransform>().anchorMax = Vector2.one;
+            invGO.GetComponent<RectTransform>().sizeDelta = Vector2.zero;
+            invGO.AddComponent<InventoryUI>();
+
+            // Skill menu panel
+            var skillGO = new GameObject("SkillMenuUI");
+            skillGO.transform.SetParent(canvasGO.transform, false);
+            skillGO.AddComponent<RectTransform>().anchorMin = Vector2.zero;
+            skillGO.GetComponent<RectTransform>().anchorMax = Vector2.one;
+            skillGO.GetComponent<RectTransform>().sizeDelta = Vector2.zero;
+            skillGO.AddComponent<SkillMenuUI>();
+
+            Debug.Log("[GameBootstrapper] UI built at runtime.");
         }
 
         private void EnableDebugMode()

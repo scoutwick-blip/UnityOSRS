@@ -110,19 +110,20 @@ namespace RuneRealm.World
             terrain.terrainData = terrainData;
             collider.terrainData = terrainData;
 
-            // Assign URP terrain material so it doesn't render pink
-            if (terrain.materialTemplate == null)
+            // Assign a fully matte terrain material — try URP first, then built-in
             {
                 var terrainShader = Shader.Find("Universal Render Pipeline/Terrain/Lit");
                 if (terrainShader != null)
                 {
                     var mat = new Material(terrainShader);
                     mat.SetFloat("_Smoothness", 0f);
+                    mat.SetFloat("_Metallic", 0f);
+                    mat.SetFloat("_SpecularHighlights", 0f);
+                    mat.SetFloat("_EnvironmentReflections", 0f);
                     terrain.materialTemplate = mat;
                 }
                 else
                 {
-                    // Fallback for built-in pipeline
                     var fallback = Shader.Find("Nature/Terrain/Diffuse");
                     if (fallback != null)
                         terrain.materialTemplate = new Material(fallback);

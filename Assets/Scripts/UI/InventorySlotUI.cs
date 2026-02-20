@@ -25,6 +25,17 @@ namespace RuneRealm.UI
         private static Color hoverColor = new Color(0.25f, 0.22f, 0.18f, 0.7f);
         private static Color selectedColor = new Color(0.35f, 0.3f, 0.2f, 0.85f);
 
+        /// <summary>
+        /// Allows runtime code to wire up references when building UI programmatically.
+        /// </summary>
+        public void SetupRuntimeReferences(Image icon, TextMeshProUGUI qty, Image bg, Image border)
+        {
+            iconImage = icon;
+            quantityText = qty;
+            backgroundImage = bg;
+            borderImage = border;
+        }
+
         public void Initialize(int index, InventoryUI ui)
         {
             slotIndex = index;

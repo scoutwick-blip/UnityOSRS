@@ -11,6 +11,7 @@ namespace RuneRealm.UI
     /// Main HUD controller in Skyrim aesthetic style.
     /// Minimal, clean HUD with compass, stamina bar, and interaction prompt.
     /// Fades elements in/out based on context.
+    /// Self-builds all UI elements at runtime when no editor references are assigned.
     /// </summary>
     public class HUDManager : MonoBehaviour
     {
@@ -73,6 +74,8 @@ namespace RuneRealm.UI
 
         private void Start()
         {
+            BuildUIIfNeeded();
+
             if (SkillManager.Instance != null)
             {
                 SkillManager.Instance.OnXPGained += HandleXPGained;
@@ -95,14 +98,188 @@ namespace RuneRealm.UI
             UpdateClock();
         }
 
+        // ─── Runtime UI Construction ───────────────────────────────────
+
+        private void BuildUIIfNeeded()
+        {
+            if (compassDirectionText != null) return; // Already wired up
+
+            var rt = GetComponent<RectTransform>();
+
+            // --- Compass (top center) ---
+            var compassGO = CreatePanel("Compass", rt, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                new Vector2(0, -10), new Vector2(300, 30), new Color(0, 0, 0, 0.4f));
+            compassBar = compassGO.GetComponent<RectTransform>();
+            compassDirectionText = CreateText(compassGO.transform, "DirectionText",
+                "N", 16, TextAlignmentOptions.Center, Color.white);
+
+            // --- Clock (top right) ---
+            var clockGO = CreatePanel("Clock", rt, new Vector2(1, 1), new Vector2(1, 1),
+                new Vector2(-60, -10), new Vector2(80, 30), new Color(0, 0, 0, 0.4f));
+            clockText = CreateText(clockGO.transform, "ClockText",
+                "07:00", 16, TextAlignmentOptions.Center, Color.white);
+
+            // --- Crosshair (center) ---
+            var crosshairGO = new GameObject("Crosshair", typeof(RectTransform), typeof(Image));
+            crosshairGO.transform.SetParent(rt, false);
+            var chRT = crosshairGO.GetComponent<RectTransform>();
+            chRT.anchorMin = chRT.anchorMax = new Vector2(0.5f, 0.5f);
+            chRT.sizeDelta = new Vector2(4, 4);
+            crosshairDot = crosshairGO.GetComponent<Image>();
+            crosshairDot.color = new Color(1, 1, 1, 0.5f);
+            crosshairDot.raycastTarget = false;
+
+            // --- Stamina Bar (bottom center, above skill bar) ---
+            var staminaGO = CreatePanel("StaminaBar", rt, new Vector2(0.5f, 0), new Vector2(0.5f, 0),
+                new Vector2(0, 70), new Vector2(250, 8), new Color(0.1f, 0.1f, 0.1f, 0.6f));
+            staminaBarGroup = staminaGO.AddComponent<CanvasGroup>();
+
+            var fillGO = new GameObject("StaminaFill", typeof(RectTransform), typeof(Image));
+            fillGO.transform.SetParent(staminaGO.transform, false);
+            var fillRT = fillGO.GetComponent<RectTransform>();
+            fillRT.anchorMin = Vector2.zero;
+            fillRT.anchorMax = Vector2.one;
+            fillRT.offsetMin = fillRT.offsetMax = Vector2.zero;
+            staminaFill = fillGO.GetComponent<Image>();
+            staminaFill.color = Color.white;
+            staminaFill.type = Image.Type.Filled;
+            staminaFill.fillMethod = Image.FillMethod.Horizontal;
+            staminaFill.raycastTarget = false;
+
+            // --- Interaction Prompt (bottom center, above stamina) ---
+            var promptGO = CreatePanel("InteractionPrompt", rt, new Vector2(0.5f, 0), new Vector2(0.5f, 0),
+                new Vector2(0, 120), new Vector2(250, 40), new Color(0, 0, 0, 0.5f));
+            interactionPromptGroup = promptGO.AddComponent<CanvasGroup>();
+
+            interactionKeyText = CreateText(promptGO.transform, "KeyText",
+                "[E]", 16, TextAlignmentOptions.Center, new Color(0.9f, 0.8f, 0.3f));
+            var keyRT = interactionKeyText.GetComponent<RectTransform>();
+            keyRT.anchorMin = new Vector2(0, 0);
+            keyRT.anchorMax = new Vector2(0.3f, 1);
+            keyRT.offsetMin = keyRT.offsetMax = Vector2.zero;
+
+            interactionText = CreateText(promptGO.transform, "ActionText",
+                "", 16, TextAlignmentOptions.Left, Color.white);
+            var actRT = interactionText.GetComponent<RectTransform>();
+            actRT.anchorMin = new Vector2(0.3f, 0);
+            actRT.anchorMax = Vector2.one;
+            actRT.offsetMin = actRT.offsetMax = Vector2.zero;
+
+            // --- XP Notification (upper-right area) ---
+            var xpGO = CreatePanel("XPNotification", rt, new Vector2(1, 1), new Vector2(1, 1),
+                new Vector2(-120, -50), new Vector2(200, 30), new Color(0, 0, 0, 0.5f));
+            xpNotificationGroup = xpGO.AddComponent<CanvasGroup>();
+            xpNotificationText = CreateText(xpGO.transform, "XPText",
+                "", 14, TextAlignmentOptions.Center, new Color(0.9f, 0.85f, 0.4f));
+
+            // --- Level Up Banner (center, above crosshair) ---
+            var lvlGO = CreatePanel("LevelUp", rt, new Vector2(0.5f, 0.65f), new Vector2(0.5f, 0.65f),
+                Vector2.zero, new Vector2(350, 60), new Color(0, 0, 0, 0.7f));
+            levelUpGroup = lvlGO.AddComponent<CanvasGroup>();
+
+            levelUpText = CreateText(lvlGO.transform, "LevelUpTitle",
+                "SKILL INCREASED", 14, TextAlignmentOptions.Center, new Color(0.9f, 0.8f, 0.3f));
+            var ltRT = levelUpText.GetComponent<RectTransform>();
+            ltRT.anchorMin = new Vector2(0, 0.5f);
+            ltRT.anchorMax = new Vector2(1, 1);
+            ltRT.offsetMin = ltRT.offsetMax = Vector2.zero;
+
+            levelUpSkillText = CreateText(lvlGO.transform, "LevelUpSkill",
+                "", 20, TextAlignmentOptions.Center, Color.white);
+            var lsRT = levelUpSkillText.GetComponent<RectTransform>();
+            lsRT.anchorMin = new Vector2(0, 0);
+            lsRT.anchorMax = new Vector2(1, 0.55f);
+            lsRT.offsetMin = lsRT.offsetMax = Vector2.zero;
+
+            // --- Skill Progress Bar (very bottom center, Skyrim-style) ---
+            var spGO = CreatePanel("SkillProgress", rt, new Vector2(0.5f, 0), new Vector2(0.5f, 0),
+                new Vector2(0, 30), new Vector2(300, 28), new Color(0, 0, 0, 0.5f));
+            skillProgressGroup = spGO.AddComponent<CanvasGroup>();
+
+            skillProgressName = CreateText(spGO.transform, "SkillName",
+                "", 12, TextAlignmentOptions.Left, new Color(0.8f, 0.8f, 0.8f));
+            var snRT = skillProgressName.GetComponent<RectTransform>();
+            snRT.anchorMin = new Vector2(0, 0.3f);
+            snRT.anchorMax = new Vector2(0.5f, 1);
+            snRT.offsetMin = new Vector2(8, 0);
+            snRT.offsetMax = Vector2.zero;
+
+            skillProgressLevel = CreateText(spGO.transform, "SkillLevel",
+                "", 12, TextAlignmentOptions.Right, Color.white);
+            var slRT = skillProgressLevel.GetComponent<RectTransform>();
+            slRT.anchorMin = new Vector2(0.5f, 0.3f);
+            slRT.anchorMax = new Vector2(1, 1);
+            slRT.offsetMin = Vector2.zero;
+            slRT.offsetMax = new Vector2(-8, 0);
+
+            // Progress fill track
+            var trackGO = CreatePanel("ProgressTrack", spGO.GetComponent<RectTransform>(),
+                new Vector2(0, 0), new Vector2(1, 0),
+                Vector2.zero, Vector2.zero, new Color(0.2f, 0.2f, 0.2f, 0.6f));
+            var trackRT = trackGO.GetComponent<RectTransform>();
+            trackRT.anchorMin = new Vector2(0.03f, 0.05f);
+            trackRT.anchorMax = new Vector2(0.97f, 0.25f);
+            trackRT.offsetMin = trackRT.offsetMax = Vector2.zero;
+
+            var spFillGO = new GameObject("ProgressFill", typeof(RectTransform), typeof(Image));
+            spFillGO.transform.SetParent(trackGO.transform, false);
+            var spfRT = spFillGO.GetComponent<RectTransform>();
+            spfRT.anchorMin = Vector2.zero;
+            spfRT.anchorMax = Vector2.one;
+            spfRT.offsetMin = spfRT.offsetMax = Vector2.zero;
+            skillProgressFill = spFillGO.GetComponent<Image>();
+            skillProgressFill.color = new Color(0.9f, 0.8f, 0.3f);
+            skillProgressFill.type = Image.Type.Filled;
+            skillProgressFill.fillMethod = Image.FillMethod.Horizontal;
+            skillProgressFill.raycastTarget = false;
+
+            Debug.Log("[HUDManager] UI built at runtime.");
+        }
+
+        // ─── Helpers ───────────────────────────────────────────────────
+
+        private static GameObject CreatePanel(string name, RectTransform parent,
+            Vector2 anchorMin, Vector2 anchorMax, Vector2 anchoredPos,
+            Vector2 size, Color bgColor)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(parent, false);
+            var r = go.GetComponent<RectTransform>();
+            r.anchorMin = anchorMin;
+            r.anchorMax = anchorMax;
+            r.anchoredPosition = anchoredPos;
+            r.sizeDelta = size;
+            var img = go.GetComponent<Image>();
+            img.color = bgColor;
+            img.raycastTarget = false;
+            return go;
+        }
+
+        private static TextMeshProUGUI CreateText(Transform parent, string name,
+            string text, float fontSize, TextAlignmentOptions alignment, Color color)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(TextMeshProUGUI));
+            go.transform.SetParent(parent, false);
+            var r = go.GetComponent<RectTransform>();
+            r.anchorMin = Vector2.zero;
+            r.anchorMax = Vector2.one;
+            r.offsetMin = r.offsetMax = Vector2.zero;
+            var tmp = go.GetComponent<TextMeshProUGUI>();
+            tmp.text = text;
+            tmp.fontSize = fontSize;
+            tmp.alignment = alignment;
+            tmp.color = color;
+            tmp.raycastTarget = false;
+            return tmp;
+        }
+
+        // ─── Update Logic ──────────────────────────────────────────────
+
         private void UpdateCompass()
         {
-            if (Camera.main == null || compassBar == null) return;
+            if (Camera.main == null || compassDirectionText == null) return;
 
             float cameraYaw = Camera.main.transform.eulerAngles.y;
-            // Scroll the compass bar based on camera direction
-            float normalizedYaw = cameraYaw / 360f;
-            compassBar.anchoredPosition = new Vector2(-normalizedYaw * 720f, compassBar.anchoredPosition.y);
 
             if (compassDirectionText != null)
             {
@@ -217,6 +394,8 @@ namespace RuneRealm.UI
 
         private void HandleXPGained(SkillType skill, int amount, int totalXP)
         {
+            if (amount <= 0) return; // Ignore zero-amount events from save loads
+
             if (xpNotificationText != null)
             {
                 xpNotificationText.text = $"+{amount} {SkillConstants.GetSkillDisplayName(skill)} XP";

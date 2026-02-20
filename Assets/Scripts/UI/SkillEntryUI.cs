@@ -28,6 +28,19 @@ namespace RuneRealm.UI
 
         public SkillType Skill => skill;
 
+        /// <summary>
+        /// Allows runtime code to wire up references when building UI programmatically.
+        /// </summary>
+        public void SetupRuntimeReferences(TextMeshProUGUI nameText, TextMeshProUGUI levelText,
+            Image progress, Image bg, Image icon)
+        {
+            skillNameText = nameText;
+            skillLevelText = levelText;
+            progressFill = progress;
+            backgroundImage = bg;
+            iconImage = icon;
+        }
+
         public void Initialize(SkillType skillType, SkillMenuUI menu)
         {
             skill = skillType;

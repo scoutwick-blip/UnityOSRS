@@ -112,6 +112,10 @@ namespace RuneRealm.Player
         {
             if (isSkilling) return;
 
+            // Lazy-init camera reference (camera may not exist during Awake)
+            if (cameraTransform == null && Camera.main != null)
+                cameraTransform = Camera.main.transform;
+
             float horizontal = Input.GetAxisRaw("Horizontal");
             float vertical = Input.GetAxisRaw("Vertical");
 
@@ -200,7 +204,10 @@ namespace RuneRealm.Player
 
         private ResourceNode FindNearestResourceNode()
         {
-            Collider[] colliders = Physics.OverlapSphere(transform.position, interactionRange, interactionLayer);
+            // Use all layers if interactionLayer not configured (0 means "Nothing")
+            Collider[] colliders = interactionLayer != 0
+                ? Physics.OverlapSphere(transform.position, interactionRange, interactionLayer)
+                : Physics.OverlapSphere(transform.position, interactionRange);
             ResourceNode nearest = null;
             float nearestDist = float.MaxValue;
 
