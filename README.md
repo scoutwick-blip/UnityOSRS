@@ -7,18 +7,19 @@ RuneRealm is a Unity game that combines Old School RuneScape's complete skilling
 ## Requirements
 
 - **Unity 6000.3.9f1** (Unity 6)
-- Universal Render Pipeline (URP)
-- TextMeshPro
-- Input System package
+- Universal Render Pipeline (URP 17.x)
+- Input System package (1.11+)
+- TextMeshPro (included in ugui 2.0)
 
 ## Quick Start
 
 1. Clone the repository
 2. Open in Unity 6000.3.9f1
-3. Go to **RuneRealm > Setup Game Scene** in the menu bar to auto-create all manager objects
-4. Go to **RuneRealm > Generate Terrain** to build the procedural world
-5. Go to **RuneRealm > Create Default Item Database** to generate item ScriptableObjects
-6. Press Play
+3. **Create a URP Pipeline Asset**: Go to Assets > Create > Rendering > URP Asset (with Universal Renderer). Then assign it in Edit > Project Settings > Quality (for each quality level) and Edit > Project Settings > Graphics > Scriptable Render Pipeline Settings
+4. Go to **RuneRealm > Setup Game Scene** in the menu bar to auto-create all manager objects
+5. Go to **RuneRealm > Generate Terrain** to build the procedural world
+6. Go to **RuneRealm > Create Default Item Database** to generate item ScriptableObjects
+7. Press Play
 
 ## Controls
 
