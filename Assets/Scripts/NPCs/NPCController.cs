@@ -9,7 +9,6 @@ namespace RuneRealm.NPCs
     /// Base NPC controller. Handles wandering AI, player interaction,
     /// and dialogue triggering. Combines OSRS NPC feel with Skyrim AI.
     /// </summary>
-    [RequireComponent(typeof(NavMeshAgent))]
     public class NPCController : MonoBehaviour, IInteractable
     {
         [Header("NPC Info")]
@@ -50,7 +49,8 @@ namespace RuneRealm.NPCs
         private void Awake()
         {
             agent = GetComponent<NavMeshAgent>();
-            agent.stoppingDistance = 0.5f;
+            if (agent != null)
+                agent.stoppingDistance = 0.5f;
         }
 
         private void Update()

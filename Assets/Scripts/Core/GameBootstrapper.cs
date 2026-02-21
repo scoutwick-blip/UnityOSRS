@@ -64,8 +64,20 @@ namespace RuneRealm.Core
 
         private void Start()
         {
-            // Core systems — must succeed
-            SetupWorld();
+            // Core systems
+            try { SetupWorld(); }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"[GameBootstrapper] SetupWorld FAILED: {e}");
+            }
+
+            // Ensure there's ground — create an emergency floor if terrain failed
+            if (Terrain.activeTerrain == null)
+            {
+                Debug.LogWarning("[GameBootstrapper] No active terrain! Creating emergency floor.");
+                CreateEmergencyFloor();
+            }
+
             SetupPlayer();
             SetupCamera();
             SetupUI();
@@ -217,6 +229,18 @@ namespace RuneRealm.Core
                     }
                 }
             }
+        }
+
+        private void CreateEmergencyFloor()
+        {
+            // Giant flat plane so the player has something to stand on
+            var floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
+            floor.name = "EmergencyFloor";
+            floor.transform.position = new Vector3(playerSpawnPosition.x, 0f, playerSpawnPosition.z);
+            floor.transform.localScale = new Vector3(100f, 1f, 100f);
+            var rend = floor.GetComponent<Renderer>();
+            if (rend != null) rend.material.color = new Color(0.3f, 0.4f, 0.2f);
+            Debug.Log("[GameBootstrapper] Emergency floor created.");
         }
 
         private void BakeNavMesh()

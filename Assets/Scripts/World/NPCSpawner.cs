@@ -224,13 +224,16 @@ namespace RuneRealm.World
             col.radius = 0.3f;
             col.center = new Vector3(0, 0.9f, 0);
 
-            // NavMeshAgent for AI movement
-            var agent = root.AddComponent<NavMeshAgent>();
-            agent.speed = 2f;
-            agent.angularSpeed = 180f;
-            agent.stoppingDistance = 0.5f;
-            agent.radius = 0.3f;
-            agent.height = 1.8f;
+            // NavMeshAgent for AI movement — only add if NavMesh exists
+            if (NavMesh.SamplePosition(root.transform.position, out _, 10f, NavMesh.AllAreas))
+            {
+                var agent = root.AddComponent<NavMeshAgent>();
+                agent.speed = 2f;
+                agent.angularSpeed = 180f;
+                agent.stoppingDistance = 0.5f;
+                agent.radius = 0.3f;
+                agent.height = 1.8f;
+            }
 
             return root;
         }
