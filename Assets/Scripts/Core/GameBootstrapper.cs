@@ -20,23 +20,21 @@ namespace RuneRealm.Core
     /// </summary>
     public class GameBootstrapper : MonoBehaviour
     {
-        private static bool bootstrapped;
-
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void ResetStatics()
-        {
-            bootstrapped = false;
-        }
-
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void AutoBootstrap()
         {
-            if (bootstrapped) return;
-            if (FindAnyObjectByType<GameBootstrapper>() != null) return;
+            Debug.LogWarning("[GameBootstrapper] AutoBootstrap fired.");
 
-            Debug.Log("[GameBootstrapper] No bootstrapper in scene — auto-creating.");
+            // Only create one if none exists in the scene
+            if (FindAnyObjectByType<GameBootstrapper>() != null)
+            {
+                Debug.LogWarning("[GameBootstrapper] Bootstrapper already in scene, skipping auto-create.");
+                return;
+            }
+
             var go = new GameObject("GameBootstrapper");
             go.AddComponent<GameBootstrapper>();
+            Debug.LogWarning("[GameBootstrapper] Auto-created bootstrapper.");
         }
 
         [Header("Prefabs")]
@@ -61,18 +59,28 @@ namespace RuneRealm.Core
         // terrain component hasn't registered yet, so we grab it directly.
         private Terrain generatedTerrain;
 
+        private bool initialized;
+
         private void Awake()
         {
-            // Prevent duplicate bootstrappers
-            if (bootstrapped)
+            // Prevent duplicate bootstrappers — destroy extras at instance level
+            var others = FindObjectsByType<GameBootstrapper>(FindObjectsSortMode.None);
+            if (others.Length > 1)
             {
-                Debug.LogWarning("[GameBootstrapper] Duplicate detected — destroying.");
-                Destroy(gameObject);
-                return;
+                // Keep whichever was created first (lowest instance ID)
+                foreach (var other in others)
+                {
+                    if (other != this && other.initialized)
+                    {
+                        Debug.LogWarning("[GameBootstrapper] Duplicate detected — destroying this one.");
+                        Destroy(gameObject);
+                        return;
+                    }
+                }
             }
-            bootstrapped = true;
+            initialized = true;
 
-            Debug.Log("[GameBootstrapper] Initializing RuneRealm...");
+            Debug.LogWarning("[GameBootstrapper] Initializing RuneRealm...");
 
             Application.targetFrameRate = 60;
             QualitySettings.vSyncCount = 1;
@@ -90,7 +98,7 @@ namespace RuneRealm.Core
             // Always ensure we have a terrain. Try generating, then fallback.
             SetupWorld();
 
-            Debug.Log($"[GameBootstrapper] After SetupWorld — " +
+            Debug.LogWarning($"[GameBootstrapper] After SetupWorld — " +
                 $"generatedTerrain: {generatedTerrain != null}, " +
                 $"activeTerrain: {Terrain.activeTerrain != null}");
 
@@ -209,12 +217,12 @@ namespace RuneRealm.Core
 
             if (generatedTerrain != null)
             {
-                Debug.Log($"[GameBootstrapper] Found existing terrain: {generatedTerrain.name}");
+                Debug.LogWarning($"[GameBootstrapper] Found existing terrain: {generatedTerrain.name}");
             }
             else
             {
                 // ----- Step 2: Generate terrain from scratch -----
-                Debug.Log("[GameBootstrapper] No terrain in scene — generating procedurally...");
+                Debug.LogWarning("[GameBootstrapper] No terrain in scene — generating procedurally...");
                 try
                 {
                     var terrainGen = FindAnyObjectByType<TerrainGenerator>();
@@ -230,7 +238,7 @@ namespace RuneRealm.Core
                     if (generatedTerrain == null)
                         generatedTerrain = FindAnyObjectByType<Terrain>();
 
-                    Debug.Log($"[GameBootstrapper] Terrain generation complete. " +
+                    Debug.LogWarning($"[GameBootstrapper] Terrain generation complete. " +
                         $"Found: {generatedTerrain != null}");
                 }
                 catch (System.Exception e)
@@ -251,7 +259,7 @@ namespace RuneRealm.Core
             // Ensure terrain is enabled
             generatedTerrain.gameObject.SetActive(true);
             generatedTerrain.enabled = true;
-            Debug.Log($"[GameBootstrapper] Terrain ready: {generatedTerrain.name}, " +
+            Debug.LogWarning($"[GameBootstrapper] Terrain ready: {generatedTerrain.name}, " +
                 $"pos={generatedTerrain.transform.position}, " +
                 $"size={generatedTerrain.terrainData.size}");
 
