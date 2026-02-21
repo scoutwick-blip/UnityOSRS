@@ -188,7 +188,10 @@ namespace RuneRealm.Player
                 float terrainY = terrain.SampleHeight(transform.position) + terrain.transform.position.y;
                 if (transform.position.y < terrainY)
                 {
-                    transform.position = new Vector3(transform.position.x, terrainY + 0.1f, transform.position.z);
+                    // Must disable CharacterController to teleport directly
+                    characterController.enabled = false;
+                    transform.position = new Vector3(transform.position.x, terrainY + 0.5f, transform.position.z);
+                    characterController.enabled = true;
                     velocity.y = 0f;
                 }
             }

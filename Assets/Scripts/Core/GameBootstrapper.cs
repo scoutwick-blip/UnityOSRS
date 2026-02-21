@@ -64,13 +64,19 @@ namespace RuneRealm.Core
 
         private void Start()
         {
+            // Core systems — must succeed
             SetupWorld();
             SetupPlayer();
             SetupCamera();
             SetupUI();
             SetupLighting();
-            SetupWeather();
-            SetupNPCs();
+
+            // Non-critical systems — failures must not break the game
+            try { SetupWeather(); }
+            catch (System.Exception e) { Debug.LogWarning($"[GameBootstrapper] Weather setup failed: {e.Message}"); }
+
+            try { SetupNPCs(); }
+            catch (System.Exception e) { Debug.LogWarning($"[GameBootstrapper] NPC setup failed: {e.Message}"); }
 
             // Start the game
             if (GameManager.Instance != null)
@@ -138,26 +144,31 @@ namespace RuneRealm.Core
                 DontDestroyOnLoad(go);
             }
 
-            // Quest Manager
-            if (QuestManager.Instance == null)
+            // Non-critical managers — wrap so core game still works if these fail
+            try
             {
-                var go = new GameObject("QuestManager");
-                go.AddComponent<QuestManager>();
-                DontDestroyOnLoad(go);
-            }
+                if (QuestManager.Instance == null)
+                {
+                    var go = new GameObject("QuestManager");
+                    go.AddComponent<QuestManager>();
+                    DontDestroyOnLoad(go);
+                }
 
-            // Biome System
-            if (BiomeSystem.Instance == null)
-            {
-                var go = new GameObject("BiomeSystem");
-                go.AddComponent<BiomeSystem>();
-            }
+                if (BiomeSystem.Instance == null)
+                {
+                    var go = new GameObject("BiomeSystem");
+                    go.AddComponent<BiomeSystem>();
+                }
 
-            // Dialogue Manager
-            if (DialogueManager.Instance == null)
+                if (DialogueManager.Instance == null)
+                {
+                    var go = new GameObject("DialogueManager");
+                    go.AddComponent<DialogueManager>();
+                }
+            }
+            catch (System.Exception e)
             {
-                var go = new GameObject("DialogueManager");
-                go.AddComponent<DialogueManager>();
+                Debug.LogWarning($"[GameBootstrapper] Non-critical manager init failed: {e.Message}");
             }
         }
 
@@ -176,25 +187,33 @@ namespace RuneRealm.Core
                 terrainGen.GenerateTerrain();
                 Debug.Log("[GameBootstrapper] Terrain generated.");
 
-                // Bake NavMesh on terrain for NPC pathfinding
-                BakeNavMesh();
+                // Bake NavMesh on terrain for NPC pathfinding (non-critical)
+                try { BakeNavMesh(); }
+                catch (System.Exception e) { Debug.LogWarning($"[GameBootstrapper] NavMesh bake failed: {e.Message}"); }
 
                 if (spawnResourcesOnStart)
                 {
-                    var resourceSpawner = FindAnyObjectByType<ResourceSpawner>();
-                    if (resourceSpawner == null)
+                    try
                     {
-                        var rsGO = new GameObject("ResourceSpawner");
-                        resourceSpawner = rsGO.AddComponent<ResourceSpawner>();
-                    }
+                        var resourceSpawner = FindAnyObjectByType<ResourceSpawner>();
+                        if (resourceSpawner == null)
+                        {
+                            var rsGO = new GameObject("ResourceSpawner");
+                            resourceSpawner = rsGO.AddComponent<ResourceSpawner>();
+                        }
 
-                    var terrain = terrainGen.GetComponent<Terrain>();
-                    if (terrain != null)
+                        var terrain = terrainGen.GetComponent<Terrain>();
+                        if (terrain != null)
+                        {
+                            resourceSpawner.SpawnResources(
+                                terrain.terrainData,
+                                terrainGen.transform.position
+                            );
+                        }
+                    }
+                    catch (System.Exception e)
                     {
-                        resourceSpawner.SpawnResources(
-                            terrain.terrainData,
-                            terrainGen.transform.position
-                        );
+                        Debug.LogWarning($"[GameBootstrapper] Resource spawning failed: {e.Message}");
                     }
                 }
             }
