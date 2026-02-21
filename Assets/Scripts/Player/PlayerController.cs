@@ -180,6 +180,18 @@ namespace RuneRealm.Player
             // Apply gravity
             velocity.y += gravity * Time.deltaTime;
             characterController.Move(velocity * Time.deltaTime);
+
+            // Safety: prevent falling through terrain
+            var terrain = Terrain.activeTerrain;
+            if (terrain != null)
+            {
+                float terrainY = terrain.SampleHeight(transform.position) + terrain.transform.position.y;
+                if (transform.position.y < terrainY)
+                {
+                    transform.position = new Vector3(transform.position.x, terrainY + 0.1f, transform.position.z);
+                    velocity.y = 0f;
+                }
+            }
         }
 
         private void HandleStamina()
