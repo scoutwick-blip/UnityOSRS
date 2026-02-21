@@ -43,6 +43,7 @@ namespace RuneRealm.Player
         private bool isSprinting;
         private float currentStamina;
         private float lastSprintTime;
+        private bool staminaExhausted;
         private ResourceNode nearestNode;
         private SkillingAction currentSkillingAction;
         private bool isSkilling;
@@ -152,10 +153,12 @@ namespace RuneRealm.Player
                 direction = (Vector3.forward * vertical + Vector3.right * horizontal).normalized;
             }
 
-            // Sprint
+            // Sprint — require 20% stamina to resume after exhaustion
             var kb = Keyboard.current;
             bool shiftHeld = kb != null && kb.leftShiftKey.isPressed;
-            isSprinting = shiftHeld && currentStamina > 0 && direction.magnitude > 0.1f;
+            if (currentStamina <= 0f) staminaExhausted = true;
+            if (staminaExhausted && currentStamina >= maxStamina * 0.2f) staminaExhausted = false;
+            isSprinting = shiftHeld && !staminaExhausted && direction.magnitude > 0.1f;
             float speed = isSprinting ? sprintSpeed : walkSpeed;
 
             // Move
