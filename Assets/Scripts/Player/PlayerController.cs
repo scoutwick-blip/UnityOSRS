@@ -90,6 +90,24 @@ namespace RuneRealm.Player
             UpdateAnimator();
         }
 
+        private void LateUpdate()
+        {
+            // Absolute safety net — runs every frame AFTER all movement.
+            // Prevents the player from ever being below the terrain surface.
+            var terrain = Terrain.activeTerrain;
+            if (terrain != null)
+            {
+                float terrainY = terrain.SampleHeight(transform.position) + terrain.transform.position.y;
+                if (transform.position.y < terrainY)
+                {
+                    characterController.enabled = false;
+                    transform.position = new Vector3(transform.position.x, terrainY + 0.1f, transform.position.z);
+                    characterController.enabled = true;
+                    velocity.y = -2f;
+                }
+            }
+        }
+
         private void GroundCheck()
         {
             if (groundLayer != 0)
