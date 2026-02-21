@@ -48,6 +48,10 @@ namespace RuneRealm.Core
         [SerializeField] private bool enableDebugMode;
         [SerializeField] private bool skipToGameplay = true;
 
+        // Cached terrain reference — Terrain.activeTerrain can be null if the
+        // terrain component hasn't registered yet, so we grab it directly.
+        private Terrain generatedTerrain;
+
         private void Awake()
         {
             Debug.Log("[GameBootstrapper] Initializing RuneRealm...");
@@ -72,7 +76,7 @@ namespace RuneRealm.Core
             }
 
             // Ensure there's ground — create an emergency floor if terrain failed
-            if (Terrain.activeTerrain == null)
+            if (generatedTerrain == null && Terrain.activeTerrain == null)
             {
                 Debug.LogWarning("[GameBootstrapper] No active terrain! Creating emergency floor.");
                 CreateEmergencyFloor();
@@ -197,7 +201,23 @@ namespace RuneRealm.Core
                 }
 
                 terrainGen.GenerateTerrain();
-                Debug.Log("[GameBootstrapper] Terrain generated.");
+
+                // Store terrain reference directly — don't rely on Terrain.activeTerrain
+                // which may not be set yet during the same frame.
+                generatedTerrain = terrainGen.GetComponent<Terrain>();
+                if (generatedTerrain == null)
+                    generatedTerrain = FindAnyObjectByType<Terrain>();
+
+                Debug.Log($"[GameBootstrapper] Terrain generated. " +
+                    $"Direct ref: {generatedTerrain != null}, " +
+                    $"activeTerrain: {Terrain.activeTerrain != null}");
+
+                // Force the terrain to be active so Terrain.activeTerrain picks it up
+                if (generatedTerrain != null)
+                {
+                    generatedTerrain.gameObject.SetActive(true);
+                    generatedTerrain.enabled = true;
+                }
 
                 // Bake NavMesh on terrain for NPC pathfinding (non-critical)
                 try { BakeNavMesh(); }
@@ -214,12 +234,11 @@ namespace RuneRealm.Core
                             resourceSpawner = rsGO.AddComponent<ResourceSpawner>();
                         }
 
-                        var terrain = terrainGen.GetComponent<Terrain>();
-                        if (terrain != null)
+                        if (generatedTerrain != null)
                         {
                             resourceSpawner.SpawnResources(
-                                terrain.terrainData,
-                                terrainGen.transform.position
+                                generatedTerrain.terrainData,
+                                generatedTerrain.transform.position
                             );
                         }
                     }
@@ -233,20 +252,20 @@ namespace RuneRealm.Core
 
         private void CreateEmergencyFloor()
         {
-            // Giant flat plane so the player has something to stand on
+            // Giant flat plane at the player spawn height so there's no long fall
             var floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
             floor.name = "EmergencyFloor";
-            floor.transform.position = new Vector3(playerSpawnPosition.x, 0f, playerSpawnPosition.z);
+            floor.transform.position = playerSpawnPosition - new Vector3(0f, 2f, 0f);
             floor.transform.localScale = new Vector3(100f, 1f, 100f);
             var rend = floor.GetComponent<Renderer>();
             if (rend != null) rend.material.color = new Color(0.3f, 0.4f, 0.2f);
-            Debug.Log("[GameBootstrapper] Emergency floor created.");
+            Debug.Log($"[GameBootstrapper] Emergency floor created at Y={floor.transform.position.y}.");
         }
 
         private void BakeNavMesh()
         {
             // Use Unity.AI.Navigation NavMeshSurface to bake at runtime
-            var terrain = Terrain.activeTerrain;
+            var terrain = generatedTerrain ?? Terrain.activeTerrain;
             if (terrain == null) return;
 
             var surfaceType = System.Type.GetType(
@@ -301,11 +320,16 @@ namespace RuneRealm.Core
             Vector3 pos = playerSpawnPosition;
 
             // Sample terrain height at spawn XZ so the player lands on top
-            var terrain = Terrain.activeTerrain;
+            var terrain = generatedTerrain ?? Terrain.activeTerrain;
             if (terrain != null)
             {
                 float terrainY = terrain.SampleHeight(pos) + terrain.transform.position.y;
                 pos.y = terrainY + 2f; // small offset above surface
+                Debug.Log($"[GameBootstrapper] Spawn on terrain at Y={pos.y} (terrain height={terrainY})");
+            }
+            else
+            {
+                Debug.LogWarning($"[GameBootstrapper] No terrain for spawn height, using default Y={pos.y}");
             }
 
             return pos;
@@ -640,7 +664,7 @@ namespace RuneRealm.Core
             }
 
             // Position NPCs near the player spawn
-            var terrain = Terrain.activeTerrain;
+            var terrain = generatedTerrain ?? Terrain.activeTerrain;
             if (terrain != null)
             {
                 float terrainY = terrain.SampleHeight(playerSpawnPosition)
