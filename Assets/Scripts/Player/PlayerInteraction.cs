@@ -43,7 +43,10 @@ namespace RuneRealm.Player
 
             Vector3 origin = eyePoint != null ? eyePoint.position : transform.position + Vector3.up;
 
-            Collider[] colliders = Physics.OverlapSphere(transform.position, interactionRange, interactableLayers);
+            // Use all layers if interactableLayers not configured (0 means "Nothing")
+            Collider[] colliders = interactableLayers != 0
+                ? Physics.OverlapSphere(transform.position, interactionRange, interactableLayers)
+                : Physics.OverlapSphere(transform.position, interactionRange);
             float nearestDist = float.MaxValue;
 
             foreach (var col in colliders)

@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using RuneRealm.Player;
 
 namespace RuneRealm.World
 {
@@ -13,6 +14,12 @@ namespace RuneRealm.World
 
         [SerializeField] private BiomeDefinition[] biomes;
         [SerializeField] private float biomeTransitionWidth = 20f;
+        [SerializeField] private float biomeCheckInterval = 2f;
+
+        private BiomeDefinition currentBiome;
+        private float biomeCheckTimer;
+
+        public BiomeDefinition CurrentBiome => currentBiome;
 
         private void Awake()
         {
@@ -132,6 +139,24 @@ namespace RuneRealm.World
                     }
                 },
             };
+        }
+
+        private void Update()
+        {
+            biomeCheckTimer -= Time.deltaTime;
+            if (biomeCheckTimer > 0) return;
+            biomeCheckTimer = biomeCheckInterval;
+
+            var player = PlayerController.Instance;
+            if (player == null) return;
+
+            var biome = GetBiomeAt(player.transform.position);
+            if (biome != null && biome != currentBiome)
+            {
+                currentBiome = biome;
+                ApplyBiomeAtmosphere(biome);
+                Debug.Log($"[BiomeSystem] Entered biome: {biome.biomeName}");
+            }
         }
 
         public BiomeDefinition GetBiomeAt(Vector3 worldPosition)

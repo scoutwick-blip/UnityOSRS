@@ -42,6 +42,22 @@ namespace RuneRealm.Skills
         public bool IsDepleted => isDepleted;
         public float InteractionRadius => interactionRadius;
 
+        /// <summary>
+        /// Initialize a resource node at runtime when no serialized data exists.
+        /// </summary>
+        public void Initialize(string name, SkillType skill, int level, ResourceType type,
+            ItemData item, int harvests = 1, float respawnTime = 30f)
+        {
+            resourceName = name;
+            requiredSkill = skill;
+            requiredLevel = level;
+            resourceType = type;
+            harvestedItem = item;
+            harvestsBeforeDepletion = harvests;
+            respawnTimeSeconds = respawnTime;
+            remainingHarvests = harvests;
+        }
+
         private void Awake()
         {
             audioSource = GetComponent<AudioSource>();

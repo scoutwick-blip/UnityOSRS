@@ -68,8 +68,9 @@ namespace RuneRealm.Core
             SetupPlayer();
             SetupCamera();
             SetupUI();
-
             SetupLighting();
+            SetupWeather();
+            SetupNPCs();
 
             // Start the game
             if (GameManager.Instance != null)
@@ -136,6 +137,28 @@ namespace RuneRealm.Core
                 go.AddComponent<EquipmentManager>();
                 DontDestroyOnLoad(go);
             }
+
+            // Quest Manager
+            if (QuestManager.Instance == null)
+            {
+                var go = new GameObject("QuestManager");
+                go.AddComponent<QuestManager>();
+                DontDestroyOnLoad(go);
+            }
+
+            // Biome System
+            if (BiomeSystem.Instance == null)
+            {
+                var go = new GameObject("BiomeSystem");
+                go.AddComponent<BiomeSystem>();
+            }
+
+            // Dialogue Manager
+            if (DialogueManager.Instance == null)
+            {
+                var go = new GameObject("DialogueManager");
+                go.AddComponent<DialogueManager>();
+            }
         }
 
         private void SetupWorld()
@@ -152,6 +175,9 @@ namespace RuneRealm.Core
 
                 terrainGen.GenerateTerrain();
                 Debug.Log("[GameBootstrapper] Terrain generated.");
+
+                // Bake NavMesh on terrain for NPC pathfinding
+                BakeNavMesh();
 
                 if (spawnResourcesOnStart)
                 {
@@ -171,6 +197,33 @@ namespace RuneRealm.Core
                         );
                     }
                 }
+            }
+        }
+
+        private void BakeNavMesh()
+        {
+            // Use Unity.AI.Navigation NavMeshSurface to bake at runtime
+            var terrain = Terrain.activeTerrain;
+            if (terrain == null) return;
+
+            var surfaceType = System.Type.GetType(
+                "Unity.AI.Navigation.NavMeshSurface, Unity.AI.Navigation");
+            if (surfaceType == null)
+            {
+                Debug.LogWarning("[GameBootstrapper] NavMeshSurface type not found. NPCs may not pathfind.");
+                return;
+            }
+
+            var surface = terrain.gameObject.GetComponent(surfaceType);
+            if (surface == null)
+                surface = terrain.gameObject.AddComponent(surfaceType);
+
+            // Call BuildNavMesh()
+            var buildMethod = surfaceType.GetMethod("BuildNavMesh");
+            if (buildMethod != null)
+            {
+                buildMethod.Invoke(surface, null);
+                Debug.Log("[GameBootstrapper] NavMesh baked on terrain.");
             }
         }
 
@@ -369,7 +422,72 @@ namespace RuneRealm.Core
             skillGO.GetComponent<RectTransform>().sizeDelta = Vector2.zero;
             skillGO.AddComponent<SkillMenuUI>();
 
+            // Dialogue panel (for NPC conversations)
+            BuildDialogueUI(canvasGO.transform);
+
             Debug.Log("[GameBootstrapper] UI built at runtime.");
+        }
+
+        private void BuildDialogueUI(Transform canvasParent)
+        {
+            var dm = DialogueManager.Instance;
+            if (dm == null) return;
+
+            // Dialogue panel — bottom of screen
+            var panelGO = new GameObject("DialoguePanel", typeof(RectTransform), typeof(Image));
+            panelGO.transform.SetParent(canvasParent, false);
+            var panelRT = panelGO.GetComponent<RectTransform>();
+            panelRT.anchorMin = new Vector2(0.1f, 0.02f);
+            panelRT.anchorMax = new Vector2(0.9f, 0.28f);
+            panelRT.offsetMin = panelRT.offsetMax = Vector2.zero;
+            var panelImg = panelGO.GetComponent<Image>();
+            panelImg.color = new Color(0f, 0f, 0f, 0.85f);
+            panelImg.raycastTarget = true;
+
+            // NPC name
+            var nameGO = new GameObject("NPCName", typeof(RectTransform), typeof(TMPro.TextMeshProUGUI));
+            nameGO.transform.SetParent(panelGO.transform, false);
+            var nameRT = nameGO.GetComponent<RectTransform>();
+            nameRT.anchorMin = new Vector2(0.02f, 0.75f);
+            nameRT.anchorMax = new Vector2(0.5f, 0.98f);
+            nameRT.offsetMin = nameRT.offsetMax = Vector2.zero;
+            var nameTMP = nameGO.GetComponent<TMPro.TextMeshProUGUI>();
+            nameTMP.text = "NPC";
+            nameTMP.fontSize = 18;
+            nameTMP.color = new Color(0.9f, 0.8f, 0.3f);
+            nameTMP.fontStyle = TMPro.FontStyles.Bold;
+
+            // Dialogue text
+            var textGO = new GameObject("DialogueText", typeof(RectTransform), typeof(TMPro.TextMeshProUGUI));
+            textGO.transform.SetParent(panelGO.transform, false);
+            var textRT = textGO.GetComponent<RectTransform>();
+            textRT.anchorMin = new Vector2(0.02f, 0.05f);
+            textRT.anchorMax = new Vector2(0.98f, 0.72f);
+            textRT.offsetMin = textRT.offsetMax = Vector2.zero;
+            var textTMP = textGO.GetComponent<TMPro.TextMeshProUGUI>();
+            textTMP.text = "";
+            textTMP.fontSize = 16;
+            textTMP.color = Color.white;
+
+            // Choices container
+            var choicesGO = new GameObject("Choices", typeof(RectTransform),
+                typeof(VerticalLayoutGroup));
+            choicesGO.transform.SetParent(panelGO.transform, false);
+            var choicesRT = choicesGO.GetComponent<RectTransform>();
+            choicesRT.anchorMin = new Vector2(0.6f, 0.05f);
+            choicesRT.anchorMax = new Vector2(0.98f, 0.72f);
+            choicesRT.offsetMin = choicesRT.offsetMax = Vector2.zero;
+
+            // Wire into DialogueManager
+            var dmType = typeof(DialogueManager);
+            var flags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+            dmType.GetField("dialoguePanel", flags)?.SetValue(dm, panelGO);
+            dmType.GetField("npcNameText", flags)?.SetValue(dm, nameTMP);
+            dmType.GetField("dialogueText", flags)?.SetValue(dm, textTMP);
+            dmType.GetField("choicesContainer", flags)?.SetValue(dm, choicesGO.transform);
+
+            panelGO.SetActive(false);
+            Debug.Log("[GameBootstrapper] Dialogue UI built.");
         }
 
         private void SetupLighting()
@@ -402,6 +520,92 @@ namespace RuneRealm.Core
                 if (field != null)
                     field.SetValue(GameManager.Instance, sun);
             }
+
+            // Wire into WeatherSystem too
+            if (WeatherSystem.Instance != null)
+            {
+                var wsType = typeof(WeatherSystem);
+                var field = wsType.GetField("sunLight",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                if (field != null)
+                    field.SetValue(WeatherSystem.Instance, sun);
+            }
+
+            // DayNightAmbience
+            if (FindAnyObjectByType<DayNightAmbience>() == null)
+            {
+                var ambienceGO = new GameObject("DayNightAmbience");
+                ambienceGO.AddComponent<DayNightAmbience>();
+            }
+        }
+
+        private void SetupWeather()
+        {
+            if (WeatherSystem.Instance != null) return;
+
+            var go = new GameObject("WeatherSystem");
+            var ws = go.AddComponent<WeatherSystem>();
+
+            // Create a rain particle system
+            var rainGO = new GameObject("RainParticles");
+            rainGO.transform.SetParent(go.transform);
+            var rainPS = rainGO.AddComponent<ParticleSystem>();
+            ConfigureRainParticles(rainPS);
+
+            // Wire rain particles into weather system
+            var wsType = typeof(WeatherSystem);
+            var flags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+            wsType.GetField("rainParticles", flags)?.SetValue(ws, rainPS);
+
+            // Start with clear weather initially
+            rainPS.Stop();
+            Debug.Log("[GameBootstrapper] WeatherSystem created.");
+        }
+
+        private void ConfigureRainParticles(ParticleSystem ps)
+        {
+            var main = ps.main;
+            main.maxParticles = 5000;
+            main.startLifetime = 2f;
+            main.startSpeed = 15f;
+            main.startSize = 0.05f;
+            main.startColor = new Color(0.7f, 0.75f, 0.85f, 0.4f);
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+            main.gravityModifier = 1.5f;
+
+            var emission = ps.emission;
+            emission.rateOverTime = 0f; // Weather system controls this
+
+            var shape = ps.shape;
+            shape.shapeType = ParticleSystemShapeType.Box;
+            shape.scale = new Vector3(40f, 1f, 40f);
+            shape.position = new Vector3(0, 30f, 0);
+
+            // Make rain follow the camera
+            ps.gameObject.AddComponent<FollowCamera>();
+
+            ps.Stop();
+        }
+
+        private void SetupNPCs()
+        {
+            var spawner = FindAnyObjectByType<NPCSpawner>();
+            if (spawner == null)
+            {
+                var go = new GameObject("NPCSpawner");
+                spawner = go.AddComponent<NPCSpawner>();
+            }
+
+            // Position NPCs near the player spawn
+            var terrain = Terrain.activeTerrain;
+            if (terrain != null)
+            {
+                float terrainY = terrain.SampleHeight(playerSpawnPosition)
+                                 + terrain.transform.position.y;
+                spawner.SetBasePosition(playerSpawnPosition, terrainY);
+            }
+
+            spawner.SpawnAllNPCs();
         }
 
         private void EnableDebugMode()
@@ -416,6 +620,18 @@ namespace RuneRealm.Core
                 SkillManager.Instance.AddXP(SkillType.Fishing, 500);
                 SkillManager.Instance.AddXP(SkillType.Cooking, 300);
             }
+        }
+    }
+
+    /// <summary>
+    /// Simple helper to make a particle system follow the main camera.
+    /// </summary>
+    public class FollowCamera : MonoBehaviour
+    {
+        private void LateUpdate()
+        {
+            if (Camera.main != null)
+                transform.position = Camera.main.transform.position;
         }
     }
 }
