@@ -56,6 +56,7 @@ namespace RuneRealm.NPCs
         private void Update()
         {
             if (isInteracting) return;
+            if (agent == null || !agent.isOnNavMesh) return;
 
             switch (behavior)
             {
