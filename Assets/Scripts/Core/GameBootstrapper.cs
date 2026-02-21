@@ -86,26 +86,13 @@ namespace RuneRealm.Core
 
         private void Start()
         {
-            // Core systems
-            try { SetupWorld(); }
-            catch (System.Exception e)
-            {
-                Debug.LogError($"[GameBootstrapper] SetupWorld FAILED: {e}");
-            }
+            // --- TERRAIN ---
+            // Always ensure we have a terrain. Try generating, then fallback.
+            SetupWorld();
 
-            // Final fallback — look for any Terrain that might exist
-            if (generatedTerrain == null)
-                generatedTerrain = FindAnyObjectByType<Terrain>();
-
-            if (generatedTerrain == null && Terrain.activeTerrain == null)
-            {
-                Debug.LogWarning("[GameBootstrapper] No terrain found anywhere! Creating emergency floor.");
-                CreateEmergencyFloor();
-            }
-            else
-            {
-                Debug.Log($"[GameBootstrapper] Terrain confirmed: {generatedTerrain?.name}");
-            }
+            Debug.Log($"[GameBootstrapper] After SetupWorld — " +
+                $"generatedTerrain: {generatedTerrain != null}, " +
+                $"activeTerrain: {Terrain.activeTerrain != null}");
 
             SetupPlayer();
             SetupCamera();
@@ -215,54 +202,65 @@ namespace RuneRealm.Core
 
         private void SetupWorld()
         {
-            if (!generateTerrainOnStart)
-            {
-                Debug.Log("[GameBootstrapper] generateTerrainOnStart is OFF, skipping terrain.");
-                return;
-            }
-
-            var terrainGen = FindAnyObjectByType<TerrainGenerator>();
-            if (terrainGen == null)
-            {
-                var terrainGO = new GameObject("TerrainGenerator");
-                terrainGen = terrainGO.AddComponent<TerrainGenerator>();
-                Debug.Log("[GameBootstrapper] Created TerrainGenerator.");
-            }
-
-            // Generate terrain — wrap so we still capture the reference even
-            // if heightmap painting or texturing throws partway through.
-            try
-            {
-                terrainGen.GenerateTerrain();
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogError($"[GameBootstrapper] GenerateTerrain threw: {e}");
-            }
-
-            // Always try to grab the terrain reference — SetupTerrain() inside
-            // GenerateTerrain() adds the component early, so it may exist
-            // even if later steps (textures, heightmap) failed.
-            generatedTerrain = terrainGen.GetComponent<Terrain>();
+            // ----- Step 1: Check for ANY existing terrain first -----
+            generatedTerrain = Terrain.activeTerrain;
             if (generatedTerrain == null)
                 generatedTerrain = FindAnyObjectByType<Terrain>();
 
-            Debug.Log($"[GameBootstrapper] Terrain result — " +
-                $"direct ref: {generatedTerrain != null}, " +
-                $"activeTerrain: {Terrain.activeTerrain != null}, " +
-                $"terrainGen GO active: {terrainGen.gameObject.activeSelf}");
-
             if (generatedTerrain != null)
             {
-                generatedTerrain.gameObject.SetActive(true);
-                generatedTerrain.enabled = true;
+                Debug.Log($"[GameBootstrapper] Found existing terrain: {generatedTerrain.name}");
             }
+            else
+            {
+                // ----- Step 2: Generate terrain from scratch -----
+                Debug.Log("[GameBootstrapper] No terrain in scene — generating procedurally...");
+                try
+                {
+                    var terrainGen = FindAnyObjectByType<TerrainGenerator>();
+                    if (terrainGen == null)
+                    {
+                        var terrainGO = new GameObject("TerrainGenerator");
+                        terrainGen = terrainGO.AddComponent<TerrainGenerator>();
+                    }
+
+                    terrainGen.GenerateTerrain();
+
+                    generatedTerrain = terrainGen.GetComponent<Terrain>();
+                    if (generatedTerrain == null)
+                        generatedTerrain = FindAnyObjectByType<Terrain>();
+
+                    Debug.Log($"[GameBootstrapper] Terrain generation complete. " +
+                        $"Found: {generatedTerrain != null}");
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogError($"[GameBootstrapper] GenerateTerrain threw: {e}");
+                    // Still try to find anything that was partially created
+                    generatedTerrain = FindAnyObjectByType<Terrain>();
+                }
+            }
+
+            // ----- Step 3: Last resort — create a flat emergency terrain -----
+            if (generatedTerrain == null)
+            {
+                Debug.LogWarning("[GameBootstrapper] All terrain methods failed — creating emergency terrain.");
+                generatedTerrain = CreateEmergencyTerrain();
+            }
+
+            // Ensure terrain is enabled
+            generatedTerrain.gameObject.SetActive(true);
+            generatedTerrain.enabled = true;
+            Debug.Log($"[GameBootstrapper] Terrain ready: {generatedTerrain.name}, " +
+                $"pos={generatedTerrain.transform.position}, " +
+                $"size={generatedTerrain.terrainData.size}");
 
             // Bake NavMesh on terrain for NPC pathfinding (non-critical)
             try { BakeNavMesh(); }
             catch (System.Exception e) { Debug.LogWarning($"[GameBootstrapper] NavMesh bake failed: {e.Message}"); }
 
-            if (spawnResourcesOnStart && generatedTerrain != null)
+            // Spawn resources on terrain
+            if (generatedTerrain != null && generatedTerrain.terrainData != null)
             {
                 try
                 {
@@ -285,16 +283,63 @@ namespace RuneRealm.Core
             }
         }
 
-        private void CreateEmergencyFloor()
+        /// <summary>
+        /// Creates a minimal flat Unity Terrain as a last-resort ground surface.
+        /// Uses a proper Terrain component so all terrain-dependent systems still work.
+        /// </summary>
+        private Terrain CreateEmergencyTerrain()
         {
-            // Giant flat plane at the player spawn height so there's no long fall
-            var floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
-            floor.name = "EmergencyFloor";
-            floor.transform.position = playerSpawnPosition - new Vector3(0f, 2f, 0f);
-            floor.transform.localScale = new Vector3(100f, 1f, 100f);
-            var rend = floor.GetComponent<Renderer>();
-            if (rend != null) rend.material.color = new Color(0.3f, 0.4f, 0.2f);
-            Debug.Log($"[GameBootstrapper] Emergency floor created at Y={floor.transform.position.y}.");
+            var td = new TerrainData();
+            td.heightmapResolution = 33;
+            td.size = new Vector3(512, 50, 512);
+
+            // Set a uniform height so the surface isn't at Y=0
+            float[,] heights = new float[33, 33];
+            float normalizedHeight = 0.5f; // 50 * 0.5 = Y offset of 25
+            for (int x = 0; x < 33; x++)
+                for (int z = 0; z < 33; z++)
+                    heights[x, z] = normalizedHeight;
+            td.SetHeights(0, 0, heights);
+
+            var go = Terrain.CreateTerrainGameObject(td);
+            go.name = "EmergencyTerrain";
+            go.transform.position = Vector3.zero;
+
+            var terrain = go.GetComponent<Terrain>();
+
+            // Assign a working material
+            bool urpActive = GraphicsSettings.defaultRenderPipeline != null;
+            string[] shaderNames = urpActive
+                ? new[] { "Universal Render Pipeline/Terrain/Lit", "Nature/Terrain/Standard" }
+                : new[] { "Nature/Terrain/Standard", "Standard" };
+
+            foreach (var name in shaderNames)
+            {
+                var shader = Shader.Find(name);
+                if (shader != null)
+                {
+                    terrain.materialTemplate = new Material(shader);
+                    break;
+                }
+            }
+
+            // Paint it green with a procedural terrain layer
+            var tex = new Texture2D(2, 2);
+            var green = new Color(0.28f, 0.38f, 0.15f);
+            tex.SetPixels(new[] { green, green, green, green });
+            tex.Apply();
+
+            var layer = new TerrainLayer { diffuseTexture = tex, tileSize = new Vector2(10, 10) };
+            td.terrainLayers = new[] { layer };
+
+            float[,,] alphamaps = new float[td.alphamapWidth, td.alphamapHeight, 1];
+            for (int x = 0; x < td.alphamapWidth; x++)
+                for (int z = 0; z < td.alphamapHeight; z++)
+                    alphamaps[x, z, 0] = 1f;
+            td.SetAlphamaps(0, 0, alphamaps);
+
+            Debug.Log($"[GameBootstrapper] Emergency terrain created at surface Y={normalizedHeight * td.size.y}");
+            return terrain;
         }
 
         private void BakeNavMesh()
