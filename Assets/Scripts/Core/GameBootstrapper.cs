@@ -20,9 +20,18 @@ namespace RuneRealm.Core
     /// </summary>
     public class GameBootstrapper : MonoBehaviour
     {
+        private static bool bootstrapped;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics()
+        {
+            bootstrapped = false;
+        }
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void AutoBootstrap()
         {
+            if (bootstrapped) return;
             if (FindAnyObjectByType<GameBootstrapper>() != null) return;
 
             Debug.Log("[GameBootstrapper] No bootstrapper in scene — auto-creating.");
@@ -54,6 +63,15 @@ namespace RuneRealm.Core
 
         private void Awake()
         {
+            // Prevent duplicate bootstrappers
+            if (bootstrapped)
+            {
+                Debug.LogWarning("[GameBootstrapper] Duplicate detected — destroying.");
+                Destroy(gameObject);
+                return;
+            }
+            bootstrapped = true;
+
             Debug.Log("[GameBootstrapper] Initializing RuneRealm...");
 
             Application.targetFrameRate = 60;
@@ -75,11 +93,18 @@ namespace RuneRealm.Core
                 Debug.LogError($"[GameBootstrapper] SetupWorld FAILED: {e}");
             }
 
-            // Ensure there's ground — create an emergency floor if terrain failed
+            // Final fallback — look for any Terrain that might exist
+            if (generatedTerrain == null)
+                generatedTerrain = FindAnyObjectByType<Terrain>();
+
             if (generatedTerrain == null && Terrain.activeTerrain == null)
             {
-                Debug.LogWarning("[GameBootstrapper] No active terrain! Creating emergency floor.");
+                Debug.LogWarning("[GameBootstrapper] No terrain found anywhere! Creating emergency floor.");
                 CreateEmergencyFloor();
+            }
+            else
+            {
+                Debug.Log($"[GameBootstrapper] Terrain confirmed: {generatedTerrain?.name}");
             }
 
             SetupPlayer();
@@ -190,62 +215,72 @@ namespace RuneRealm.Core
 
         private void SetupWorld()
         {
-            if (generateTerrainOnStart)
+            if (!generateTerrainOnStart)
             {
-                var terrainGen = FindAnyObjectByType<TerrainGenerator>();
-                if (terrainGen == null)
-                {
-                    var terrainGO = new GameObject("TerrainGenerator");
-                    terrainGen = terrainGO.AddComponent<TerrainGenerator>();
-                    Debug.Log("[GameBootstrapper] Created TerrainGenerator.");
-                }
+                Debug.Log("[GameBootstrapper] generateTerrainOnStart is OFF, skipping terrain.");
+                return;
+            }
 
+            var terrainGen = FindAnyObjectByType<TerrainGenerator>();
+            if (terrainGen == null)
+            {
+                var terrainGO = new GameObject("TerrainGenerator");
+                terrainGen = terrainGO.AddComponent<TerrainGenerator>();
+                Debug.Log("[GameBootstrapper] Created TerrainGenerator.");
+            }
+
+            // Generate terrain — wrap so we still capture the reference even
+            // if heightmap painting or texturing throws partway through.
+            try
+            {
                 terrainGen.GenerateTerrain();
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"[GameBootstrapper] GenerateTerrain threw: {e}");
+            }
 
-                // Store terrain reference directly — don't rely on Terrain.activeTerrain
-                // which may not be set yet during the same frame.
-                generatedTerrain = terrainGen.GetComponent<Terrain>();
-                if (generatedTerrain == null)
-                    generatedTerrain = FindAnyObjectByType<Terrain>();
+            // Always try to grab the terrain reference — SetupTerrain() inside
+            // GenerateTerrain() adds the component early, so it may exist
+            // even if later steps (textures, heightmap) failed.
+            generatedTerrain = terrainGen.GetComponent<Terrain>();
+            if (generatedTerrain == null)
+                generatedTerrain = FindAnyObjectByType<Terrain>();
 
-                Debug.Log($"[GameBootstrapper] Terrain generated. " +
-                    $"Direct ref: {generatedTerrain != null}, " +
-                    $"activeTerrain: {Terrain.activeTerrain != null}");
+            Debug.Log($"[GameBootstrapper] Terrain result — " +
+                $"direct ref: {generatedTerrain != null}, " +
+                $"activeTerrain: {Terrain.activeTerrain != null}, " +
+                $"terrainGen GO active: {terrainGen.gameObject.activeSelf}");
 
-                // Force the terrain to be active so Terrain.activeTerrain picks it up
-                if (generatedTerrain != null)
+            if (generatedTerrain != null)
+            {
+                generatedTerrain.gameObject.SetActive(true);
+                generatedTerrain.enabled = true;
+            }
+
+            // Bake NavMesh on terrain for NPC pathfinding (non-critical)
+            try { BakeNavMesh(); }
+            catch (System.Exception e) { Debug.LogWarning($"[GameBootstrapper] NavMesh bake failed: {e.Message}"); }
+
+            if (spawnResourcesOnStart && generatedTerrain != null)
+            {
+                try
                 {
-                    generatedTerrain.gameObject.SetActive(true);
-                    generatedTerrain.enabled = true;
+                    var resourceSpawner = FindAnyObjectByType<ResourceSpawner>();
+                    if (resourceSpawner == null)
+                    {
+                        var rsGO = new GameObject("ResourceSpawner");
+                        resourceSpawner = rsGO.AddComponent<ResourceSpawner>();
+                    }
+
+                    resourceSpawner.SpawnResources(
+                        generatedTerrain.terrainData,
+                        generatedTerrain.transform.position
+                    );
                 }
-
-                // Bake NavMesh on terrain for NPC pathfinding (non-critical)
-                try { BakeNavMesh(); }
-                catch (System.Exception e) { Debug.LogWarning($"[GameBootstrapper] NavMesh bake failed: {e.Message}"); }
-
-                if (spawnResourcesOnStart)
+                catch (System.Exception e)
                 {
-                    try
-                    {
-                        var resourceSpawner = FindAnyObjectByType<ResourceSpawner>();
-                        if (resourceSpawner == null)
-                        {
-                            var rsGO = new GameObject("ResourceSpawner");
-                            resourceSpawner = rsGO.AddComponent<ResourceSpawner>();
-                        }
-
-                        if (generatedTerrain != null)
-                        {
-                            resourceSpawner.SpawnResources(
-                                generatedTerrain.terrainData,
-                                generatedTerrain.transform.position
-                            );
-                        }
-                    }
-                    catch (System.Exception e)
-                    {
-                        Debug.LogWarning($"[GameBootstrapper] Resource spawning failed: {e.Message}");
-                    }
+                    Debug.LogWarning($"[GameBootstrapper] Resource spawning failed: {e.Message}");
                 }
             }
         }
