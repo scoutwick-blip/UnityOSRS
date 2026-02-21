@@ -110,15 +110,29 @@ namespace RuneRealm.World
             terrain.terrainData = terrainData;
             collider.terrainData = terrainData;
 
-            // Assign terrain material — try shaders in priority order
+            // Assign terrain material based on the active render pipeline
             {
-                // Try common terrain shaders: URP, built-in Standard, built-in Diffuse
-                string[] shaderNames = new string[]
+                bool urpActive = UnityEngine.Rendering.GraphicsSettings.defaultRenderPipeline != null;
+
+                string[] shaderNames;
+                if (urpActive)
                 {
-                    "Universal Render Pipeline/Terrain/Lit",
-                    "Nature/Terrain/Standard",
-                    "Nature/Terrain/Diffuse",
-                };
+                    shaderNames = new string[]
+                    {
+                        "Universal Render Pipeline/Terrain/Lit",
+                        "Nature/Terrain/Standard",
+                        "Nature/Terrain/Diffuse",
+                    };
+                }
+                else
+                {
+                    // Built-in pipeline — skip URP shaders (they render pink without pipeline)
+                    shaderNames = new string[]
+                    {
+                        "Nature/Terrain/Standard",
+                        "Nature/Terrain/Diffuse",
+                    };
+                }
 
                 Material mat = null;
                 foreach (var name in shaderNames)
@@ -127,7 +141,7 @@ namespace RuneRealm.World
                     if (shader != null)
                     {
                         mat = new Material(shader);
-                        Debug.Log($"[TerrainGenerator] Using terrain shader: {name}");
+                        Debug.Log($"[TerrainGenerator] Using terrain shader: {name} (URP active: {urpActive})");
                         break;
                     }
                 }

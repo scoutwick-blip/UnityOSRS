@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
+using UnityEngine.Rendering;
 using RuneRealm.Skills;
 using RuneRealm.Inventory;
 using RuneRealm.Player;
@@ -286,6 +287,15 @@ namespace RuneRealm.Core
             cam.nearClipPlane = 0.1f;
             cam.farClipPlane = 1500f;
             cam.fieldOfView = 65f;
+
+            // If URP is active, ensure the camera has UniversalAdditionalCameraData
+            if (GraphicsSettings.defaultRenderPipeline != null)
+            {
+                var urpCamDataType = System.Type.GetType(
+                    "UnityEngine.Rendering.Universal.UniversalAdditionalCameraData, Unity.RenderPipelines.Universal.Runtime");
+                if (urpCamDataType != null && cam.GetComponent(urpCamDataType) == null)
+                    cam.gameObject.AddComponent(urpCamDataType);
+            }
 
             // Immediately position camera behind the player so it doesn't
             // sit at the origin waiting for ThirdPersonCamera.LateUpdate()
