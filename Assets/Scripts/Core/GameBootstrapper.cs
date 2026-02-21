@@ -68,6 +68,8 @@ namespace RuneRealm.Core
             SetupCamera();
             SetupUI();
 
+            SetupLighting();
+
             // Start the game
             if (GameManager.Instance != null)
             {
@@ -226,9 +228,11 @@ namespace RuneRealm.Core
             cc.center = new Vector3(0, 0.9f, 0);
 
             // Player components
+            // Note: EquipmentManager is NOT added here — it's already a singleton
+            // created by EnsureManagers(). Adding it here would trigger the singleton
+            // guard's Destroy(gameObject) and destroy the entire Player.
             player.AddComponent<PlayerController>();
             player.AddComponent<PlayerInteraction>();
-            player.AddComponent<EquipmentManager>();
             player.AddComponent<WoodcuttingAction>();
             player.AddComponent<MiningAction>();
             player.AddComponent<FishingAction>();
@@ -356,6 +360,38 @@ namespace RuneRealm.Core
             skillGO.AddComponent<SkillMenuUI>();
 
             Debug.Log("[GameBootstrapper] UI built at runtime.");
+        }
+
+        private void SetupLighting()
+        {
+            // Create a directional light if none exists
+            var existingLight = FindAnyObjectByType<Light>();
+            Light sun;
+            if (existingLight != null && existingLight.type == LightType.Directional)
+            {
+                sun = existingLight;
+            }
+            else
+            {
+                var lightGO = new GameObject("Directional Light");
+                sun = lightGO.AddComponent<Light>();
+                sun.type = LightType.Directional;
+                sun.color = new Color(1f, 0.95f, 0.85f);
+                sun.intensity = 1.2f;
+                sun.shadows = LightShadows.Soft;
+                sun.transform.rotation = Quaternion.Euler(50f, 170f, 0f);
+                Debug.Log("[GameBootstrapper] Created directional light.");
+            }
+
+            // Wire it into GameManager for day/night cycle
+            if (GameManager.Instance != null)
+            {
+                var gmType = typeof(GameManager);
+                var field = gmType.GetField("directionalLight",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                if (field != null)
+                    field.SetValue(GameManager.Instance, sun);
+            }
         }
 
         private void EnableDebugMode()

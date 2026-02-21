@@ -110,24 +110,38 @@ namespace RuneRealm.World
             terrain.terrainData = terrainData;
             collider.terrainData = terrainData;
 
-            // Assign a fully matte terrain material — try URP first, then built-in
+            // Assign terrain material — try shaders in priority order
             {
-                var terrainShader = Shader.Find("Universal Render Pipeline/Terrain/Lit");
-                if (terrainShader != null)
+                // Try common terrain shaders: URP, built-in Standard, built-in Diffuse
+                string[] shaderNames = new string[]
                 {
-                    var mat = new Material(terrainShader);
-                    mat.SetFloat("_Smoothness", 0f);
-                    mat.SetFloat("_Metallic", 0f);
-                    mat.SetFloat("_SpecularHighlights", 0f);
-                    mat.SetFloat("_EnvironmentReflections", 0f);
-                    terrain.materialTemplate = mat;
-                }
-                else
+                    "Universal Render Pipeline/Terrain/Lit",
+                    "Nature/Terrain/Standard",
+                    "Nature/Terrain/Diffuse",
+                };
+
+                Material mat = null;
+                foreach (var name in shaderNames)
                 {
-                    var fallback = Shader.Find("Nature/Terrain/Diffuse");
-                    if (fallback != null)
-                        terrain.materialTemplate = new Material(fallback);
+                    var shader = Shader.Find(name);
+                    if (shader != null)
+                    {
+                        mat = new Material(shader);
+                        Debug.Log($"[TerrainGenerator] Using terrain shader: {name}");
+                        break;
+                    }
                 }
+
+                if (mat == null)
+                {
+                    // Last resort: use the default Standard shader
+                    mat = new Material(Shader.Find("Standard"));
+                    Debug.LogWarning("[TerrainGenerator] No terrain shader found, using Standard.");
+                }
+
+                mat.SetFloat("_Smoothness", 0f);
+                mat.SetFloat("_Metallic", 0f);
+                terrain.materialTemplate = mat;
             }
         }
 
